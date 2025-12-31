@@ -1,0 +1,18 @@
+# Development files
+node_modules/
+.git/
+*.log
+
+# Lock files (not needed for linked packages)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build artifacts that shouldn't be in source
+*.tsbuildinfo
+
+# Test files
+__tests__/
+*.test.ts
+*.spec.ts
+coverage/
