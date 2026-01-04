@@ -40,7 +40,7 @@ export type {
 } from './message';
 
 // Conversation types
-export type { Conversation } from './conversation';
+export type { Conversation, ConversationSource } from './conversation';
 
 // User types
 export type {

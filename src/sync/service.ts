@@ -32,11 +32,13 @@ import type {
   SyncSummary,
   DeletedMessageTombstone,
 } from './types';
+import { sha256 } from '@noble/hashes/sha2';
+import { bytesToHex } from '../utils/encoding';
 import {
   createManifest,
+  createMessageDigest,
   createMemberDigest,
-  createSyncSummary,
-  computeManifestHash,
+  createReactionDigest,
   computeMessageDiff,
   computeMemberDiff,
   computePeerDiff,
@@ -58,6 +60,29 @@ export interface SyncServiceConfig {
   requestExpiry?: number;
   /** Callback when sync should be initiated */
   onInitiateSync?: (spaceId: string, target: string) => void;
+  /** Cache TTL in ms (default: 5000) */
+  cacheTtl?: number;
+}
+
+// ============ Cache Types ============
+
+interface SyncPayloadCache {
+  /** Space and channel IDs */
+  spaceId: string;
+  channelId: string;
+  /** Message map for delta building - O(1) lookup */
+  messageMap: Map<string, Message>;
+  /** Member map for delta building - O(1) lookup */
+  memberMap: Map<string, SpaceMember>;
+  /** Message digest map - O(1) lookup/update */
+  digestMap: Map<string, MessageDigest>;
+  /** Member digest map - O(1) lookup/update */
+  memberDigestMap: Map<string, MemberDigest>;
+  /** Tracked timestamps for O(1) summary updates */
+  oldestTimestamp: number;
+  newestTimestamp: number;
+  /** XOR-based manifest hash bytes for O(1) incremental updates */
+  manifestHashBytes: Uint8Array;
 }
 
 // ============ SyncService Class ============
@@ -74,11 +99,276 @@ export class SyncService {
   /** Deleted message tombstones (caller must persist these) */
   private tombstones: DeletedMessageTombstone[] = [];
 
+  /** Pre-computed sync payload cache per space:channel - always ready to use */
+  private payloadCache: Map<string, SyncPayloadCache> = new Map();
+
   constructor(config: SyncServiceConfig) {
     this.storage = config.storage;
     this.maxMessages = config.maxMessages ?? 1000;
     this.requestExpiry = config.requestExpiry ?? DEFAULT_SYNC_EXPIRY_MS;
     this.onInitiateSync = config.onInitiateSync;
+  }
+
+  // ============ Payload Cache Management ============
+
+  /**
+   * Get cache key for space/channel
+   */
+  private getCacheKey(spaceId: string, channelId: string): string {
+    return `${spaceId}:${channelId}`;
+  }
+
+  /**
+   * Get or initialize the payload cache for a space/channel.
+   * If not cached, loads from storage and builds the payload once.
+   */
+  private async getPayloadCache(spaceId: string, channelId: string): Promise<SyncPayloadCache> {
+    const key = this.getCacheKey(spaceId, channelId);
+    const cached = this.payloadCache.get(key);
+
+    if (cached) {
+      logger.log(`[SyncService] Using cached payload for ${spaceId.substring(0, 12)}:${channelId.substring(0, 12)}`);
+      return cached;
+    }
+
+    // Initial load from storage - this only happens once per space/channel
+    logger.log(`[SyncService] Building initial payload cache for ${spaceId.substring(0, 12)}:${channelId.substring(0, 12)}`);
+    const messages = await this.getChannelMessages(spaceId, channelId);
+    const members = await this.storage.getSpaceMembers(spaceId);
+
+    const payload = this.buildPayloadCache(spaceId, channelId, messages, members);
+    this.payloadCache.set(key, payload);
+
+    return payload;
+  }
+
+  /**
+   * Hash a message ID to bytes for XOR-based manifest hash
+   */
+  private hashMessageId(messageId: string): Uint8Array {
+    return sha256(new TextEncoder().encode(messageId));
+  }
+
+  /**
+   * XOR hash bytes into the accumulator - O(1)
+   */
+  private xorIntoHash(accumulator: Uint8Array, hash: Uint8Array): void {
+    for (let i = 0; i < 32; i++) {
+      accumulator[i] ^= hash[i];
+    }
+  }
+
+  /**
+   * Build the payload cache from messages and members - O(n) initial build
+   */
+  private buildPayloadCache(
+    spaceId: string,
+    channelId: string,
+    messages: Message[],
+    members: SpaceMember[]
+  ): SyncPayloadCache {
+    const messageMap = new Map(messages.map(m => [m.messageId, m]));
+    const memberMap = new Map(members.map(m => [m.address, m]));
+    const digestMap = new Map(messages.map(m => [m.messageId, createMessageDigest(m)]));
+    const memberDigestMap = new Map(members.map(m => [m.address, createMemberDigest(m)]));
+
+    // Compute timestamps
+    let oldestTimestamp = Infinity;
+    let newestTimestamp = 0;
+    for (const msg of messages) {
+      if (msg.createdDate < oldestTimestamp) oldestTimestamp = msg.createdDate;
+      if (msg.createdDate > newestTimestamp) newestTimestamp = msg.createdDate;
+    }
+    if (messages.length === 0) {
+      oldestTimestamp = 0;
+    }
+
+    // Compute XOR-based manifest hash - O(n) initial build
+    const manifestHashBytes = new Uint8Array(32);
+    for (const msg of messages) {
+      this.xorIntoHash(manifestHashBytes, this.hashMessageId(msg.messageId));
+    }
+
+    return {
+      spaceId,
+      channelId,
+      messageMap,
+      memberMap,
+      digestMap,
+      memberDigestMap,
+      oldestTimestamp,
+      newestTimestamp,
+      manifestHashBytes,
+    };
+  }
+
+  /**
+   * Get manifest hash as hex string - O(1)
+   */
+  private getManifestHash(cache: SyncPayloadCache): string {
+    return bytesToHex(cache.manifestHashBytes);
+  }
+
+  /**
+   * Get the manifest from cache - builds it on demand
+   */
+  private getManifest(cache: SyncPayloadCache): SyncManifest {
+    const digests = [...cache.digestMap.values()].sort((a, b) => a.createdDate - b.createdDate);
+
+    // Collect reaction digests
+    const reactionDigests: ReturnType<typeof createReactionDigest> = [];
+    for (const msg of cache.messageMap.values()) {
+      if (msg.reactions && msg.reactions.length > 0) {
+        reactionDigests.push(...createReactionDigest(msg.messageId, msg.reactions));
+      }
+    }
+
+    return {
+      spaceId: cache.spaceId,
+      channelId: cache.channelId,
+      messageCount: cache.digestMap.size,
+      oldestTimestamp: cache.oldestTimestamp,
+      newestTimestamp: cache.newestTimestamp,
+      digests,
+      reactionDigests,
+    };
+  }
+
+  /**
+   * Get the summary from cache - O(1)
+   */
+  private getSummary(cache: SyncPayloadCache): SyncSummary {
+    return {
+      memberCount: cache.memberDigestMap.size,
+      messageCount: cache.digestMap.size,
+      newestMessageTimestamp: cache.newestTimestamp,
+      oldestMessageTimestamp: cache.oldestTimestamp,
+      manifestHash: this.getManifestHash(cache),
+    };
+  }
+
+  /**
+   * Get member digests from cache - O(m)
+   */
+  private getMemberDigests(cache: SyncPayloadCache): MemberDigest[] {
+    return [...cache.memberDigestMap.values()];
+  }
+
+  /**
+   * Invalidate cache for a space/channel (forces reload from storage on next access)
+   */
+  invalidateCache(spaceId: string, channelId?: string): void {
+    if (channelId) {
+      const key = this.getCacheKey(spaceId, channelId);
+      this.payloadCache.delete(key);
+      logger.log(`[SyncService] Invalidated cache for ${spaceId.substring(0, 12)}:${channelId.substring(0, 12)}`);
+    } else {
+      // Invalidate all channels for this space
+      for (const key of this.payloadCache.keys()) {
+        if (key.startsWith(`${spaceId}:`)) {
+          this.payloadCache.delete(key);
+        }
+      }
+      logger.log(`[SyncService] Invalidated all caches for space ${spaceId.substring(0, 12)}`);
+    }
+  }
+
+  /**
+   * Update cache with a new/updated message - O(1) incremental update
+   */
+  updateCacheWithMessage(spaceId: string, channelId: string, message: Message): void {
+    const key = this.getCacheKey(spaceId, channelId);
+    const cached = this.payloadCache.get(key);
+
+    if (cached) {
+      const isNew = !cached.messageMap.has(message.messageId);
+
+      // O(1) - update maps
+      cached.messageMap.set(message.messageId, message);
+      cached.digestMap.set(message.messageId, createMessageDigest(message));
+
+      // O(1) - update timestamps if needed
+      if (message.createdDate < cached.oldestTimestamp) {
+        cached.oldestTimestamp = message.createdDate;
+      }
+      if (message.createdDate > cached.newestTimestamp) {
+        cached.newestTimestamp = message.createdDate;
+      }
+
+      // O(1) - XOR in the new message ID hash (only for new messages)
+      if (isNew) {
+        this.xorIntoHash(cached.manifestHashBytes, this.hashMessageId(message.messageId));
+      }
+
+      logger.log(`[SyncService] Updated cache with message ${message.messageId.substring(0, 12)} (O(1))`);
+    }
+    // If no cache exists, next getPayloadCache call will load from storage
+  }
+
+  /**
+   * Remove a message from cache - O(1) for removal, but may need O(n) for timestamp recalc
+   */
+  removeCacheMessage(spaceId: string, channelId: string, messageId: string): void {
+    const key = this.getCacheKey(spaceId, channelId);
+    const cached = this.payloadCache.get(key);
+
+    if (cached) {
+      const message = cached.messageMap.get(messageId);
+      if (!message) return; // Message not in cache
+
+      cached.messageMap.delete(messageId);
+      cached.digestMap.delete(messageId);
+
+      // O(1) - XOR out the removed message ID hash (XOR is its own inverse)
+      this.xorIntoHash(cached.manifestHashBytes, this.hashMessageId(messageId));
+
+      // Check if we need to recalculate timestamps (only if removed message was at boundary)
+      if (message.createdDate === cached.oldestTimestamp || message.createdDate === cached.newestTimestamp) {
+        // O(n) recalculation needed - but this is rare (only when deleting oldest/newest)
+        this.recalculateTimestamps(cached);
+      }
+
+      logger.log(`[SyncService] Removed message ${messageId.substring(0, 12)} from cache`);
+    }
+  }
+
+  /**
+   * Recalculate timestamps from scratch - O(n), only called when necessary
+   */
+  private recalculateTimestamps(cache: SyncPayloadCache): void {
+    let oldestTimestamp = Infinity;
+    let newestTimestamp = 0;
+
+    for (const msg of cache.messageMap.values()) {
+      if (msg.createdDate < oldestTimestamp) oldestTimestamp = msg.createdDate;
+      if (msg.createdDate > newestTimestamp) newestTimestamp = msg.createdDate;
+    }
+
+    cache.oldestTimestamp = cache.messageMap.size === 0 ? 0 : oldestTimestamp;
+    cache.newestTimestamp = newestTimestamp;
+  }
+
+  /**
+   * Update cache with a new/updated member - O(1) incremental update
+   */
+  updateCacheWithMember(spaceId: string, channelId: string, member: SpaceMember): void {
+    const key = this.getCacheKey(spaceId, channelId);
+    const cached = this.payloadCache.get(key);
+
+    if (cached) {
+      // O(1) - update maps
+      cached.memberMap.set(member.address, member);
+      cached.memberDigestMap.set(member.address, createMemberDigest(member));
+
+      logger.log(`[SyncService] Updated cache with member ${member.address.substring(0, 12)} (O(1))`);
+    }
+  }
+
+  /**
+   * Check if cache exists for a space/channel
+   */
+  hasCachedPayload(spaceId: string, channelId: string): boolean {
+    return this.payloadCache.has(this.getCacheKey(spaceId, channelId));
   }
 
   // ============ Session Management ============
@@ -142,10 +432,7 @@ export class SyncService {
     channelId: string,
     inboxAddress: string
   ): Promise<SyncRequestPayload> {
-    const messages = await this.getChannelMessages(spaceId, channelId);
-    const members = await this.storage.getSpaceMembers(spaceId);
-
-    const summary = createSyncSummary(messages, members.length);
+    const cache = await this.getPayloadCache(spaceId, channelId);
     const expiry = Date.now() + this.requestExpiry;
 
     // Create session to track candidates
@@ -161,7 +448,7 @@ export class SyncService {
       type: 'sync-request',
       inboxAddress,
       expiry,
-      summary,
+      summary: this.getSummary(cache),
     };
   }
 
@@ -199,19 +486,18 @@ export class SyncService {
     theirSummary: SyncSummary
   ): Promise<SyncInfoPayload | null> {
     logger.log(`[SyncService] buildSyncInfo called for space=${spaceId.substring(0, 12)}, channel=${channelId.substring(0, 12)}`);
-    const messages = await this.getChannelMessages(spaceId, channelId);
-    const members = await this.storage.getSpaceMembers(spaceId);
+    const cache = await this.getPayloadCache(spaceId, channelId);
+    const ourSummary = this.getSummary(cache);
 
-    logger.log(`[SyncService] buildSyncInfo: our data - ${messages.length} messages, ${members.length} members`);
+    logger.log(`[SyncService] buildSyncInfo: our data - ${cache.messageMap.size} messages, ${cache.memberMap.size} members`);
     logger.log(`[SyncService] buildSyncInfo: their summary:`, theirSummary);
 
     // Nothing to offer
-    if (messages.length === 0 && members.length === 0) {
+    if (cache.messageMap.size === 0 && cache.memberMap.size === 0) {
       logger.log(`[SyncService] buildSyncInfo: returning null - we have no data`);
       return null;
     }
 
-    const ourSummary = createSyncSummary(messages, members.length);
     logger.log(`[SyncService] buildSyncInfo: our summary:`, ourSummary);
 
     // Quick check: if manifest hashes match and member counts match, likely in sync
@@ -318,11 +604,7 @@ export class SyncService {
       return null;
     }
 
-    const messages = await this.getChannelMessages(spaceId, channelId);
-    const members = await this.storage.getSpaceMembers(spaceId);
-
-    const manifest = createManifest(spaceId, channelId, messages);
-    const memberDigests = members.map(createMemberDigest);
+    const cache = await this.getPayloadCache(spaceId, channelId);
 
     // Mark sync in progress and store target
     this.setSyncInProgress(spaceId, true);
@@ -333,8 +615,8 @@ export class SyncService {
       payload: {
         type: 'sync-initiate',
         inboxAddress,
-        manifest,
-        memberDigests,
+        manifest: this.getManifest(cache),
+        memberDigests: this.getMemberDigests(cache),
         peerIds,
       },
     };
@@ -351,14 +633,13 @@ export class SyncService {
     peerIds: number[],
     inboxAddress: string
   ): Promise<SyncManifestPayload> {
-    const messages = await this.getChannelMessages(spaceId, channelId);
-    const members = await this.storage.getSpaceMembers(spaceId);
+    const cache = await this.getPayloadCache(spaceId, channelId);
 
     return {
       type: 'sync-manifest',
       inboxAddress,
-      manifest: createManifest(spaceId, channelId, messages),
-      memberDigests: members.map(createMemberDigest),
+      manifest: this.getManifest(cache),
+      memberDigests: this.getMemberDigests(cache),
       peerIds,
     };
   }
@@ -377,36 +658,30 @@ export class SyncService {
     theirPeerIds: number[],
     ourPeerEntries: Map<number, PeerEntry>
   ): Promise<SyncDeltaPayload[]> {
-    const messages = await this.getChannelMessages(spaceId, channelId);
-    const members = await this.storage.getSpaceMembers(spaceId);
-
-    const ourManifest = createManifest(spaceId, channelId, messages);
-    const ourMemberDigests = members.map(createMemberDigest);
+    const cache = await this.getPayloadCache(spaceId, channelId);
     const ourPeerIds = [...ourPeerEntries.keys()];
 
-    // Compute diffs - note: computeMessageDiff(ourManifest, theirManifest) returns extraIds = messages we have that they don't
+    // Compute diffs using cached manifest and digests
+    const ourManifest = this.getManifest(cache);
+    const ourMemberDigests = this.getMemberDigests(cache);
     const messageDiff = computeMessageDiff(ourManifest, theirManifest);
     const memberDiff = computeMemberDiff(theirMemberDigests, ourMemberDigests);
     const peerDiff = computePeerDiff(theirPeerIds, ourPeerIds);
 
-    // Build maps for lookups
-    const messageMap = new Map(messages.map((m) => [m.messageId, m]));
-    const memberMap = new Map(members.map((m) => [m.address, m]));
-
-    // Build deltas
+    // Build deltas using cached maps
     const messageDelta = buildMessageDelta(
       spaceId,
       channelId,
       messageDiff,
-      messageMap,
+      cache.messageMap,
       this.tombstones
     );
 
     // Build reaction delta for messages they're missing or have outdated
     const reactionMessageIds = [...messageDiff.extraIds, ...messageDiff.outdatedIds];
-    const reactionDelta = buildReactionDelta(spaceId, channelId, messageMap, reactionMessageIds);
+    const reactionDelta = buildReactionDelta(spaceId, channelId, cache.messageMap, reactionMessageIds);
 
-    const memberDelta = buildMemberDelta(spaceId, memberDiff, memberMap);
+    const memberDelta = buildMemberDelta(spaceId, memberDiff, cache.memberMap);
 
     // Build peer map delta
     const peerMapDelta: PeerMapDelta = {
