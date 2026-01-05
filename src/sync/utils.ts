@@ -147,18 +147,28 @@ export function computeMemberHash(member: SpaceMember): {
 }
 
 /**
+ * XOR two Uint8Array buffers together (modifies first buffer in place)
+ */
+function xorBuffers(a: Uint8Array, b: Uint8Array): void {
+  for (let i = 0; i < 32; i++) {
+    a[i] ^= b[i];
+  }
+}
+
+/**
  * Compute manifest hash for quick comparison.
- * Hash of sorted message IDs.
+ * Uses XOR of SHA-256 hashes of message IDs for O(1) incremental updates.
+ * XOR is order-independent, so same message set = same hash regardless of order.
  */
 export function computeManifestHash(digests: MessageDigest[]): string {
-  if (digests.length === 0) {
-    return computeHash('');
+  const result = new Uint8Array(32);
+
+  for (const digest of digests) {
+    const idHash = sha256(new TextEncoder().encode(digest.messageId));
+    xorBuffers(result, idHash);
   }
 
-  // Sort by messageId for deterministic hash
-  const sorted = [...digests].sort((a, b) => a.messageId.localeCompare(b.messageId));
-  const ids = sorted.map((d) => d.messageId).join(':');
-  return computeHash(ids);
+  return bytesToHex(result);
 }
 
 // ============ Digest Creation ============

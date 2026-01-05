@@ -16,6 +16,7 @@ import type { Message, SpaceMember } from '../types';
 import { logger } from '../utils/logger';
 import type {
   SyncManifest,
+  MessageDigest,
   MessageDelta,
   ReactionDelta,
   MemberDigest,
