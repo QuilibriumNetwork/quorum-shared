@@ -13,6 +13,8 @@ export type {
   Group,
   Channel,
   Space,
+  SpaceTag,
+  BroadcastSpaceTag,
 } from './space';
 
 // Message types
@@ -33,6 +35,9 @@ export type {
   PinMessage,
   DeleteConversationMessage,
   EditMessage,
+  ThreadMessage,
+  ThreadMeta,
+  ChannelThread,
   MessageContent,
   Reaction,
   Mentions,

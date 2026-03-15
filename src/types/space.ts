@@ -2,6 +2,15 @@
  * Space-related types for Quorum
  */
 
+export type SpaceTag = {
+  letters: string;
+  url: string;
+};
+
+export type BroadcastSpaceTag = SpaceTag & {
+  spaceId: string;
+};
+
 export type Permission = 'message:delete' | 'message:pin' | 'mention:everyone' | 'user:mute';
 
 export type Role = {
@@ -51,6 +60,7 @@ export type Channel = {
   icon?: string;
   iconColor?: string;
   iconVariant?: 'outline' | 'filled';
+  allowThreads?: boolean;
 };
 
 export type Space = {
@@ -72,4 +82,6 @@ export type Space = {
   roles: Role[];
   emojis: Emoji[];
   stickers: Sticker[];
+  spaceTag?: SpaceTag;
+  allowThreads?: boolean;
 };
