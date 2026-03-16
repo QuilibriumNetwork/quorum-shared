@@ -1,40 +1,44 @@
 import { defineConfig } from 'tsup';
 
-export default defineConfig({
-  entry: ['src/index.ts'],
-  format: ['cjs', 'esm'],
-  // DTS generation disabled — platform-specific files (.web.tsx/.native.tsx)
-  // confuse rollup's resolver. Types are generated separately via tsc.
-  // Consuming apps using file: link get types from source directly.
-  dts: false,
-  clean: true,
-  // Resolve .web.tsx files for the web build
-  // Native consumers use source files directly via Metro bundler
-  esbuildOptions(options) {
-    options.resolveExtensions = [
-      '.web.tsx',
-      '.web.ts',
-      '.tsx',
-      '.ts',
-      '.web.js',
-      '.js',
-    ];
+const external = [
+  'react',
+  'react-dom',
+  'react-native',
+  'react-tooltip',
+  'react-dropzone',
+  '@tabler/icons-react',
+  '@tabler/icons-react-native',
+  '@react-native-async-storage/async-storage',
+  '@gorhom/bottom-sheet',
+  'react-native-safe-area-context',
+  'expo-haptics',
+  'expo-document-picker',
+  'expo-image-picker',
+  'clsx',
+];
+
+export default defineConfig([
+  // Web build (consumed by Vite, webpack)
+  {
+    entry: { index: 'src/index.ts' },
+    outDir: 'dist',
+    format: ['esm', 'cjs'],
+    dts: false, // Types generated separately via tsc (see tsconfig.build.json)
+    clean: true,
+    external,
+    esbuildOptions(options) {
+      options.resolveExtensions = ['.web.tsx', '.web.ts', '.tsx', '.ts', '.js'];
+    },
   },
-  // Don't bundle peer dependencies
-  external: [
-    'react',
-    'react-dom',
-    'react-native',
-    'react-tooltip',
-    'react-dropzone',
-    '@tabler/icons-react',
-    '@tabler/icons-react-native',
-    '@react-native-async-storage/async-storage',
-    '@gorhom/bottom-sheet',
-    'react-native-safe-area-context',
-    'expo-haptics',
-    'expo-document-picker',
-    'expo-image-picker',
-    'clsx',
-  ],
-});
+  // Native build (consumed by Metro via react-native condition)
+  {
+    entry: { 'index.native': 'src/index.ts' },
+    outDir: 'dist',
+    format: ['cjs'],
+    clean: false, // Don't clean — web build already ran
+    external,
+    esbuildOptions(options) {
+      options.resolveExtensions = ['.native.tsx', '.native.ts', '.tsx', '.ts', '.js'];
+    },
+  },
+]);
