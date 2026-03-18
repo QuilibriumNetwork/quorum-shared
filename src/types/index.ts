@@ -60,3 +60,11 @@ export type {
 // Bookmark types
 export type { Bookmark } from './bookmark';
 export { BOOKMARKS_CONFIG } from './bookmark';
+
+// Notification types
+export type {
+  NotificationTypeId,
+  SpaceNotificationSettings,
+  NotificationSettingOption,
+  ReplyNotification,
+} from './notifications';
