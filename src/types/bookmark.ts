@@ -10,6 +10,7 @@ export type Bookmark = {
   conversationId?: string;
   sourceType: 'channel' | 'dm';
   createdAt: number;
+  threadId?: string;
   cachedPreview: {
     senderAddress: string;
     senderName: string;

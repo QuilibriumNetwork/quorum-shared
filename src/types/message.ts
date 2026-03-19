@@ -2,6 +2,8 @@
  * Message-related types for Quorum
  */
 
+import type { BroadcastSpaceTag } from './space';
+
 /** Client-side ephemeral status - NEVER persist to storage or include in network payload */
 export type MessageSendStatus = 'sending' | 'sent' | 'failed';
 
@@ -17,6 +19,7 @@ export type UpdateProfileMessage = {
   type: 'update-profile';
   displayName: string;
   userIcon: string;
+  spaceTag?: BroadcastSpaceTag;
 };
 
 export type RemoveMessage = {
@@ -110,6 +113,40 @@ export type EditMessage = {
   editedAt: number;
   editNonce: string;
   editSignature?: string;
+  mentions?: Mentions;
+};
+
+export type ThreadMeta = {
+  threadId: string;
+  createdBy: string;
+  customTitle?: string;
+  isClosed?: boolean;
+  closedBy?: string;
+  autoCloseAfter?: number;
+  lastActivityAt?: number;
+};
+
+export type ThreadMessage = {
+  senderId: string;
+  type: 'thread';
+  targetMessageId: string;
+  action: 'create' | 'updateTitle' | 'close' | 'reopen' | 'updateSettings' | 'remove';
+  threadMeta: ThreadMeta;
+};
+
+export type ChannelThread = {
+  threadId: string;
+  spaceId: string;
+  channelId: string;
+  rootMessageId: string;
+  createdBy: string;
+  createdAt: number;
+  lastActivityAt: number;
+  replyCount: number;
+  isClosed: boolean;
+  customTitle?: string;
+  titleSnapshot?: string;
+  hasParticipated: boolean;
 };
 
 export type MessageContent =
@@ -127,7 +164,8 @@ export type MessageContent =
   | StickerMessage
   | PinMessage
   | DeleteConversationMessage
-  | EditMessage;
+  | EditMessage
+  | ThreadMessage;
 
 export type Reaction = {
   emojiId: string;
@@ -175,4 +213,7 @@ export type Message = {
   sendStatus?: MessageSendStatus;
   /** Client-side ephemeral - sanitized error message for display */
   sendError?: string;
+  threadMeta?: ThreadMeta;
+  threadId?: string;
+  isThreadReply?: boolean;
 };

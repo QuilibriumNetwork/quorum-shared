@@ -30,3 +30,6 @@ export * from './transport';
 
 // Sync (hash-based delta synchronization)
 export * from './sync';
+
+// Primitives (UI components)
+export * from './primitives';

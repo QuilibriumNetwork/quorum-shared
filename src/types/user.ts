@@ -3,6 +3,7 @@
  */
 
 import type { Bookmark } from './bookmark';
+import type { BroadcastSpaceTag } from './space';
 
 export type FolderColor = string;
 
@@ -15,6 +16,7 @@ export type NavItem =
       spaceIds: string[];
       icon?: string;
       color?: FolderColor;
+      iconVariant?: 'outline' | 'filled';
       createdDate: number;
       modifiedDate: number;
     };
@@ -56,6 +58,18 @@ export type UserConfig = {
   };
   bookmarks?: Bookmark[];
   deletedBookmarkIds?: string[];
+  bio?: string;
+  mutedChannels?: {
+    [spaceId: string]: string[];
+  };
+  showMutedChannels?: boolean;
+  favoriteDMs?: string[];
+  mutedConversations?: string[];
+  spaceTagId?: string;
+  lastBroadcastSpaceTag?: {
+    letters: string;
+    url: string;
+  };
 };
 
 export type UserProfile = {
@@ -69,4 +83,6 @@ export type UserProfile = {
 export type SpaceMember = UserProfile & {
   inbox_address: string;
   isKicked?: boolean;
+  joinedAt?: number;
+  spaceTag?: BroadcastSpaceTag;
 };
