@@ -3,6 +3,7 @@ import { ReactNode } from 'react';
 export type IconName =
   // Essential & Status
   | 'check'
+  | 'checks'
   | 'check-circle'
   | 'check-square'
   | 'square'
