@@ -68,3 +68,10 @@ export type {
   NotificationSettingOption,
   ReplyNotification,
 } from './notifications';
+
+// Receipt types (delivery + read ack protocol)
+export type {
+  DeliveryAckMessage,
+  ReadAckMessage,
+  ReceiptEnvelopeFields,
+} from './receipt';

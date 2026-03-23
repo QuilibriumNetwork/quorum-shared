@@ -216,4 +216,8 @@ export type Message = {
   threadMeta?: ThreadMeta;
   threadId?: string;
   isThreadReply?: boolean;
+  /** Timestamp when sender processed the incoming delivery ack (persisted to storage) */
+  deliveredAt?: number;
+  /** Timestamp when sender processed the incoming read ack (persisted to storage) */
+  readAt?: number;
 };
