@@ -14,6 +14,9 @@ export type Conversation = {
   lastReadTimestamp?: number;
   isRepudiable?: boolean;
   saveEditHistory?: boolean;
+  // Per-conversation receipt overrides (undefined = use global setting)
+  deliveryReceipts?: boolean;
+  readReceipts?: boolean;
   lastMessageId?: string;
   // Farcaster-specific fields
   source?: ConversationSource;  // 'quorum' (E2EE) or 'farcaster' (direct cast)
