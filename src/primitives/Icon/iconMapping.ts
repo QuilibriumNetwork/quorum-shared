@@ -13,6 +13,7 @@ import { IconName } from './types';
 export const iconComponentMap: Record<IconName, string> = {
   // Essential & Status
   check: 'IconCheck',
+  checks: 'IconChecks',
   'check-circle': 'IconCircleCheck',
   'check-square': 'IconSquareCheck',
   square: 'IconSquare',
