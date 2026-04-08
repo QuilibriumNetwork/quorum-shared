@@ -60,6 +60,7 @@ export interface WebSelectProps extends BaseSelectProps {
   id?: string;
   autoFocus?: boolean;
   dropdownPlacement?: 'top' | 'bottom' | 'auto'; // Dropdown positioning
+  dropdownClassName?: string; // Extra CSS class(es) for the portal dropdown
 }
 
 export interface NativeSelectProps extends BaseSelectProps {
