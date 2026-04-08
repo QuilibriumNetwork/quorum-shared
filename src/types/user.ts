@@ -85,4 +85,8 @@ export type SpaceMember = UserProfile & {
   isKicked?: boolean;
   joinedAt?: number;
   spaceTag?: BroadcastSpaceTag;
+  /** Alias for `address` - matches SDK wire format (channel.UserProfile) and desktop IndexedDB keyPath */
+  user_address?: string;
+  /** Alias for `profile_image` - matches SDK wire format (channel.UserProfile) */
+  user_icon?: string;
 };
