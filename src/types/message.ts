@@ -12,6 +12,12 @@ export type PostMessage = {
   type: 'post';
   text: string | string[];
   repliesToMessageId?: string;
+  embeddedMedia?: Array<{
+    type: string;
+    key: string;
+    data: string;
+    mimeType: string;
+  }>;
 };
 
 export type UpdateProfileMessage = {
