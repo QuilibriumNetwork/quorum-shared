@@ -110,3 +110,53 @@ export const replaceYouTubeURLsInText = (
     return videoId ? replacer(match, videoId) : match;
   });
 };
+
+/**
+ * Returns up to 3 video IDs for YouTube URLs that appear alone on their own
+ * line in the given text (first 3 in document order). Duplicates are skipped.
+ */
+export const extractStandaloneYouTubeVideoIds = (text: string): string[] => {
+  const lines = text.split('\n');
+  const ids: string[] = [];
+  for (const line of lines) {
+    if (ids.length >= 3) break;
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    if (isYouTubeURL(trimmed)) {
+      const videoId = extractYouTubeVideoId(trimmed);
+      if (videoId && !ids.includes(videoId)) ids.push(videoId);
+    }
+  }
+  return ids;
+};
+
+/**
+ * Fetches the hqdefault YouTube thumbnail for a video ID.
+ * Returns base64-encoded JPEG string (no data URI prefix), or null on failure.
+ * Uses a 5-second timeout. Intended for use in browser/Electron renderer contexts.
+ */
+export const fetchYouTubeThumbnailAsBase64 = async (
+  videoId: string
+): Promise<string | null> => {
+  const url = getYouTubeThumbnailURL(videoId, 'hq');
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) return null;
+    const blob = await response.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        resolve(result.split(',')[1] ?? null);
+      };
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+};
