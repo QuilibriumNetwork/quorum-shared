@@ -1,6 +1,6 @@
 {
   "name": "@quilibrium/quorum-shared",
-  "version": "2.1.0-7",
+  "version": "2.1.0-8",
   "description": "Shared types, hooks, and utilities for Quorum mobile and desktop apps",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
