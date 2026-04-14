@@ -77,6 +77,7 @@ export type IconName =
   | 'party'
   | 'gift'
   | 'hand-peace'
+  | 'hand-rock'
   | 'ban'
   | 'cake'
   | 'glass'
@@ -90,6 +91,8 @@ export type IconName =
   | 'support'
   | 'volume'
   | 'volume-off'
+
+  | 'key'
 
   // Settings & Security
   | 'settings'
@@ -121,6 +124,7 @@ export type IconName =
   | 'desktop'
   | 'mobile'
   | 'device'
+  | 'device-floppy'
   | 'tablet'
   | 'video'
   | 'microphone'
