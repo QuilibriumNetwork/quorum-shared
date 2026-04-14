@@ -4,13 +4,8 @@ import { ReactTooltip } from '../Tooltip/ReactTooltip';
 import { Icon } from '../Icon';
 
 const Button: React.FC<WebButtonProps> = (props) => {
-  const isDisabledOnboarding =
-    props.disabled && props.type === 'disabled-onboarding';
-
   const baseClass = props.disabled
-    ? isDisabledOnboarding
-      ? 'btn-disabled-onboarding'
-      : 'btn-disabled'
+    ? 'btn-disabled'
     : `btn-${props.type || 'primary'}`;
 
   const buttonId =
@@ -34,13 +29,9 @@ const Button: React.FC<WebButtonProps> = (props) => {
           (props.fullWidth ? ' btn-full-width' : '') +
           (props.className ? ' ' + props.className : '')
         }
-        disabled={props.disabled && !isDisabledOnboarding}
-        aria-disabled={isDisabledOnboarding ? 'true' : undefined}
+        disabled={props.disabled}
         aria-label={props.ariaLabel}
-        onClick={(e) => {
-          if (isDisabledOnboarding) return;
-          props.onClick(e);
-        }}
+        onClick={props.onClick}
       >
         {props.iconName && (
           <Icon
@@ -54,7 +45,7 @@ const Button: React.FC<WebButtonProps> = (props) => {
                   : 'md')
             }
             variant={props.iconVariant}
-            className="quorum-button-icon-element"
+            className={`quorum-button-icon-element${props.iconName === 'spinner' ? ' icon-spin' : ''}`}
             style={{ color: 'inherit' }}
           />
         )}
