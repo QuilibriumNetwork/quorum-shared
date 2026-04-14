@@ -10,11 +10,7 @@ export interface BaseButtonProps {
     | 'subtle'
     | 'subtle-outline'
     | 'danger'
-    | 'primary-white'
-    | 'secondary-white'
-    | 'light-white'
-    | 'light-outline-white'
-    | 'disabled-onboarding'
+    | 'danger-outline'
     | 'unstyled';
   size?: 'compact' | 'small' | 'normal' | 'large';
   disabled?: boolean;
