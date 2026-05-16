@@ -58,6 +58,8 @@ export type UserConfig = {
   };
   bookmarks?: Bookmark[];
   deletedBookmarkIds?: string[];
+  userNotes?: { targetAddress: string; note: string; updatedAt: number }[];
+  deletedUserNoteAddresses?: string[];
   bio?: string;
   mutedChannels?: {
     [spaceId: string]: string[];
