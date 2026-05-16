@@ -128,6 +128,7 @@ export const iconComponentMap: Record<IconName, string> = {
   'calendar-alt': 'IconCalendar',
   history: 'IconHistory',
   memo: 'IconNote',
+  notes: 'IconNotes',
 
   // Devices & Hardware
   desktop: 'IconDeviceDesktop',

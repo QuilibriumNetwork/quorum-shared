@@ -119,6 +119,7 @@ export type IconName =
   | 'calendar-alt'
   | 'history'
   | 'memo'
+  | 'notes'
 
   // Devices & Hardware
   | 'desktop'
