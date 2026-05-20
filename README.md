@@ -15,6 +15,7 @@ src/
 ├── signing/      # Ed448 message signing
 ├── transport/    # HTTP and WebSocket clients
 ├── sync/         # Hash-based delta synchronization
+├── typing/       # Ephemeral typing-indicator service
 └── storage/      # Storage adapter interface
 ```
 
@@ -34,6 +35,9 @@ End-to-end encryption (Wasm-based) and Ed448 message signing. Handles key deriva
 
 ### Sync
 Hash-based delta synchronization protocol. Computes content hashes, builds manifests, and calculates minimal diffs for efficient peer-to-peer sync of messages, members, and reactions.
+
+### Typing
+Platform-agnostic typing-indicator service. Owns the wire protocol (`TypingMessage`), per-scope throttle (5s) and TTL (8s), privacy gating, and subscribe/notify routing. Consuming apps supply send callbacks (`sendDM`, `sendSpace`) and the privacy gate; the rendering layer stays per-app.
 
 ### Transport
 HTTP and WebSocket client abstractions for both browser and React Native environments.
@@ -174,4 +178,4 @@ The build produces:
 
 ---
 
-_Updated: 2026-03-16_
+_Updated: 2026-05-20_

@@ -31,5 +31,8 @@ export * from './transport';
 // Sync (hash-based delta synchronization)
 export * from './sync';
 
+// Typing (ephemeral typing-indicator service)
+export * from './typing';
+
 // Primitives (UI components)
 export * from './primitives';
