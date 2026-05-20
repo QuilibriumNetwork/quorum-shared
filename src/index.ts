@@ -34,5 +34,8 @@ export * from './sync';
 // Typing (ephemeral typing-indicator service)
 export * from './typing';
 
+// Receipts (delivery + read receipt service)
+export * from './receipts';
+
 // Primitives (UI components)
 export * from './primitives';

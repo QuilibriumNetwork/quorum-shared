@@ -16,6 +16,7 @@ src/
 ├── transport/    # HTTP and WebSocket clients
 ├── sync/         # Hash-based delta synchronization
 ├── typing/       # Ephemeral typing-indicator service
+├── receipts/     # Delivery + read receipt service
 └── storage/      # Storage adapter interface
 ```
 
@@ -38,6 +39,9 @@ Hash-based delta synchronization protocol. Computes content hashes, builds manif
 
 ### Typing
 Platform-agnostic typing-indicator service. Owns the wire protocol (`TypingMessage`), per-scope throttle (5s) and TTL (8s), privacy gating, and subscribe/notify routing. Consuming apps supply send callbacks (`sendDM`, `sendSpace`) and the privacy gate; the rendering layer stays per-app.
+
+### Receipts
+Platform-agnostic delivery + read receipt service. Owns the wire protocol (`DeliveryAckMessage`, `ReadAckMessage`), per-address delivery ack buffering with a 10s timer flush, per-address read high-water mark with a 5s debounce flush, and the piggyback / standalone coordination. Consuming apps supply callbacks for encrypted send (`onFlush`, `onReadFlush`) and cache updates (`onAckProcessed`, `onReadAckProcessed`); the intercept layer, action queue handlers, and UI components stay per-app. Browser-only background-flush listener (`visibilitychange` + `beforeunload`) is guarded with `typeof document/window` checks so the same code runs unchanged on React Native.
 
 ### Transport
 HTTP and WebSocket client abstractions for both browser and React Native environments.
@@ -178,4 +182,4 @@ The build produces:
 
 ---
 
-_Updated: 2026-05-20_
+_Updated: 2026-05-20 (twice)_
