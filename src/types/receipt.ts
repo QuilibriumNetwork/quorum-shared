@@ -31,6 +31,15 @@ export type ReadAckMessage = {
 };
 
 /**
+ * Discriminated union of all standalone receipt control messages.
+ * Use this to narrow `raw.type` inside the decrypt-layer intercept.
+ */
+export type ReceiptControlMessage = DeliveryAckMessage | ReadAckMessage;
+
+/** String-literal discriminator for ReceiptControlMessage. */
+export type ReceiptControlMessageType = ReceiptControlMessage['type'];
+
+/**
  * Envelope-level fields for piggybacking receipt data on outgoing DMs.
  * These ride along with regular messages and are stripped before persistence.
  */

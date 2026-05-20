@@ -73,6 +73,8 @@ export type {
 export type {
   DeliveryAckMessage,
   ReadAckMessage,
+  ReceiptControlMessage,
+  ReceiptControlMessageType,
   ReceiptEnvelopeFields,
 } from './receipt';
 
