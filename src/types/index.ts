@@ -75,3 +75,7 @@ export type {
   ReadAckMessage,
   ReceiptEnvelopeFields,
 } from './receipt';
+
+// Typing types (ephemeral typing-indicator protocol)
+export type { TypingMessageType, TypingMessage, TypingScope } from './typing';
+export { scopeKey, scopeFromMessage } from './typing';
