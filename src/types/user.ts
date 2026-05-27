@@ -28,6 +28,12 @@ export type NotificationSettings = {
   all?: boolean;
 };
 
+export type UserNote = {
+  targetAddress: string;
+  note: string;
+  updatedAt: number;
+};
+
 export type UserConfig = {
   address: string;
   spaceIds: string[];
@@ -70,7 +76,7 @@ export type UserConfig = {
   };
   bookmarks?: Bookmark[];
   deletedBookmarkIds?: string[];
-  userNotes?: { targetAddress: string; note: string; updatedAt: number }[];
+  userNotes?: UserNote[];
   deletedUserNoteAddresses?: string[];
   bio?: string;
   mutedChannels?: {

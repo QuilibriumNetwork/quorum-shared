@@ -53,6 +53,7 @@ export type {
   NavItem,
   NotificationSettings,
   UserConfig,
+  UserNote,
   UserProfile,
   SpaceMember,
 } from './user';
