@@ -35,6 +35,18 @@ export type UserConfig = {
   timestamp?: number;
   nonRepudiable?: boolean;
   allowSync?: boolean;
+  // Global receipt defaults (per-conversation overrides live on Conversation)
+  deliveryReceipts?: boolean;
+  readReceipts?: boolean;
+  // Global typing indicator defaults
+  typingIndicatorsDM?: boolean;
+  typingIndicatorsSpaces?: boolean;
+  // Sender-side gate for fetching YouTube thumbnails (privacy: leaks sender IP to Google)
+  generateYouTubePreviews?: boolean;
+  // Device labels keyed by inbox_address, synced across devices
+  deviceNames?: { [inboxAddress: string]: string };
+  // Tombstones so deleted device names don't resurrect via sync
+  deletedDeviceNameAddresses?: string[];
   name?: string;
   profile_image?: string;
   spaceKeys?: {
