@@ -1,20 +1,6 @@
 /**
- * Signer lifecycle: provision a new Ed25519 signer + KEY_ADD it, and
- * renew when the sliding TTL is close to expiring.
- *
- * KEY_ADD message construction:
- *  1. Generate Ed25519 keypair K.
- *  2. EIP-712 sign(SignedKeyRequest{requestFid, key=K.pub, deadline}, custodyPriv)
- *     → embed into ABI-encoded SignedKeyRequestMetadata, set as
- *     KeyAddBody.metadata.
- *  3. EIP-712 sign(KeyAdd{fid, key=K.pub, keyType, scopes, ttl, nonce, deadline},
- *     custodyPriv) → KeyAddBody.custody_signature.
- *  4. Build MessageData{type: KEY_ADD, fid, body: keyAddBody}.
- *  5. hash = blake3_20(MessageData), sig = K.priv.sign(hash) (self-attestation).
- *  6. POST envelope{data_bytes, hash, signature, signer=K.pub} to
- *     /v1/submitMessage.
- *
- * Scopes default to every MessageType the validator allows (FULL_SIGNER_SCOPES).
+ * Provision and renew Ed25519 signers via KEY_ADD. KEY_ADD construction is
+ * documented inline at submitKeyAdd().
  */
 
 import { ed25519 } from '@noble/curves/ed25519.js';
@@ -66,10 +52,6 @@ export const FULL_SIGNER_SCOPES: MessageType[] = [
   MessageType.LEND_STORAGE,
 ];
 
-// ---------------------------------------------------------------------------
-// Signer construction from a record
-// ---------------------------------------------------------------------------
-
 /** Build a FarcasterSigner usable by write hooks from a stored record. */
 export function signerFromRecord(record: SignerRecord): FarcasterSigner {
   const publicKey = hexToBytes(record.publicKeyHex);
@@ -90,10 +72,6 @@ function generateEd25519Keypair(): KeyPair {
   const { secretKey, publicKey } = ed25519.keygen();
   return { privateKey: secretKey, publicKey };
 }
-
-// ---------------------------------------------------------------------------
-// Provisioning / renewal
-// ---------------------------------------------------------------------------
 
 export interface ProvisionParams {
   fid: number;
@@ -248,10 +226,6 @@ export async function renewIfNearExpiry(deps: {
   return record;
 }
 
-// ---------------------------------------------------------------------------
-// KEY_ADD submission internals
-// ---------------------------------------------------------------------------
-
 interface SubmitKeyAddParams {
   fid: number;
   signerPrivateKey: Uint8Array;
@@ -266,11 +240,17 @@ interface SubmitKeyAddParams {
   hypersnap?: HypersnapClient;
 }
 
+/**
+ * KEY_ADD construction:
+ *  - inner: SignedKeyRequestMetadata = ABI(custody-EIP-712 of SignedKeyRequest)
+ *  - outer body: custody-EIP-712 of KeyAdd typed data (validator recovers
+ *    this and compares against IdRegisterEvent custody — see
+ *    hypersnap/src/core/validations/key.rs:198)
+ *  - envelope: Ed25519 self-attestation over blake3_20(MessageData)
+ */
 async function submitKeyAdd(params: SubmitKeyAddParams): Promise<unknown> {
   const client = params.hypersnap ?? getDefaultHypersnapClient();
 
-  // Inner: SignedKeyRequestMetadata — binds the requestFid to the key
-  // with a custody EIP-712 signature.
   const { metadata } = buildSignedKeyRequestMetadata({
     requestFid: params.fid,
     signerPublicKey: params.signerPublicKey,
@@ -278,10 +258,6 @@ async function submitKeyAdd(params: SubmitKeyAddParams): Promise<unknown> {
     custodyPrivateKey: params.custodyPrivateKey,
   });
 
-  // Outer-body custody_signature: EIP-712 over the KeyAdd typed data —
-  // authorizes the custody address to mint *this exact* signer record.
-  // The validator (key.rs:198) recovers this and compares against the
-  // FID's custody address from IdRegisterEvent.
   const custodyDigest = keyAddDigest({
     fid: params.fid,
     key: params.signerPublicKey,
@@ -310,8 +286,6 @@ async function submitKeyAdd(params: SubmitKeyAddParams): Promise<unknown> {
     },
   });
 
-  // Envelope: Ed25519 self-attestation. The signer key proves possession
-  // of its own private key by signing the BLAKE3 hash of MessageData.
   const hash = blake3_20(dataBytes);
   const signature = ed25519.sign(hash, params.signerPrivateKey);
 

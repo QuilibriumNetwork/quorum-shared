@@ -1,16 +1,7 @@
 /**
- * useUpdateProfile — update profile fields via USER_DATA_ADD messages over
- * hypersnap (one message per changed field), with PATCH /v2/me fallback.
- *
- * PFP image upload (Cloudflare) still uses the legacy endpoint since
- * hypersnap doesn't host images. The flow is:
- *   1. If `pfpImageUri` is supplied, upload via legacy first to get a
- *      CDN URL. Failure here aborts (nothing to fall back to).
- *   2. For each remaining field (including the new pfp URL), submit one
- *      USER_DATA_ADD message. Per-field hypersnap failure adds the field
- *      to a `legacyTail` set.
- *   3. If `legacyTail` is non-empty, PATCH /v2/me with the union of those
- *      fields in a single call.
+ * useUpdateProfile — one USER_DATA_ADD per changed field via hypersnap,
+ * with /v2/me PATCH as fallback for any field that failed. PFP uploads
+ * always use the legacy Cloudflare endpoint (hypersnap doesn't host images).
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -76,22 +67,19 @@ export function useUpdateProfile(options: UseUpdateProfileOptions) {
       const legacy = options.legacy ?? getDefaultLegacyClient();
       const network = options.network ?? FarcasterNetwork.MAINNET;
 
-      // ---- Step 1: pfp upload (always legacy) ------------------------------
+      // PFP upload always goes through the legacy CDN; without an uploader
+      // we defer the whole pfp change to the legacy PATCH path.
       let resolvedPfpUrl: string | undefined;
       if (params.pfpImageUri) {
         if (!options.token) {
           throw new Error('useUpdateProfile: pfp upload requires a legacy token');
         }
-        if (!options.uploadPfpImage) {
-          // No uploader — defer the entire pfp change to the legacy PATCH.
-          // The legacy PATCH path handles its own multipart in mobile.
-        } else {
+        if (options.uploadPfpImage) {
           const { url } = await legacy.generateImageUploadUrl(options.token);
           resolvedPfpUrl = await options.uploadPfpImage(url, params.pfpImageUri);
         }
       }
 
-      // ---- Step 2: per-field USER_DATA_ADD via hypersnap -------------------
       const record = options.signerStore ? await options.signerStore.get() : null;
       const signerRecord = record && record.fid === fid ? record : null;
       const signer = signerRecord ? signerFromRecord(signerRecord) : null;
@@ -116,8 +104,6 @@ export function useUpdateProfile(options: UseUpdateProfileOptions) {
       const hypersnapFields: { field: keyof UpdateProfileParams; userDataType: UserDataType }[] = [];
       const legacyTail = new Set<keyof UpdateProfileParams>();
 
-      // pfp that we couldn't upload locally still needs to ride along on
-      // the legacy PATCH path (which knows how to multipart-upload itself).
       if (params.pfpImageUri && resolvedPfpUrl === undefined) {
         legacyTail.add('pfpImageUri');
       }
@@ -144,7 +130,6 @@ export function useUpdateProfile(options: UseUpdateProfileOptions) {
         for (const c of candidates) legacyTail.add(c.field);
       }
 
-      // ---- Step 3: legacy PATCH for everything that didn't land -----------
       if (legacyTail.size > 0) {
         if (!options.token) {
           throw new Error('useUpdateProfile: hypersnap submission failed and no legacy token to fall back to');

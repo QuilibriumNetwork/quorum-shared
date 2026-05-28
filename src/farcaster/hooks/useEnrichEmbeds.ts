@@ -10,7 +10,7 @@
  * (or reuses the embed-cards endpoint farcaster.xyz exposes).
  */
 
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { withEmbedEnrichment } from '../normalize';
 import type { NormalizedCast, NormalizedEmbed } from '../types';

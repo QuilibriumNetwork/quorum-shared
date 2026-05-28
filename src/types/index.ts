@@ -13,6 +13,8 @@ export type {
   Group,
   Channel,
   Space,
+  SpaceTag,
+  BroadcastSpaceTag,
 } from './space';
 
 // Message types
@@ -42,6 +44,9 @@ export type {
   CallRenegotiateMessage,
   SpaceCallStartMessage,
   SpaceCallEndMessage,
+  ThreadMessage,
+  ThreadMeta,
+  ChannelThread,
   MessageContent,
   Reaction,
   Mentions,
@@ -57,6 +62,7 @@ export type {
   NavItem,
   NotificationSettings,
   UserConfig,
+  UserNote,
   UserProfile,
   FarcasterLink,
   PublicProfile,
@@ -66,3 +72,24 @@ export type {
 // Bookmark types
 export type { Bookmark } from './bookmark';
 export { BOOKMARKS_CONFIG } from './bookmark';
+
+// Notification types
+export type {
+  NotificationTypeId,
+  SpaceNotificationSettings,
+  NotificationSettingOption,
+  ReplyNotification,
+} from './notifications';
+
+// Receipt types (delivery + read ack protocol)
+export type {
+  DeliveryAckMessage,
+  ReadAckMessage,
+  ReceiptControlMessage,
+  ReceiptControlMessageType,
+  ReceiptEnvelopeFields,
+} from './receipt';
+
+// Typing types (ephemeral typing-indicator protocol)
+export type { TypingMessageType, TypingMessage, TypingScope } from './typing';
+export { scopeKey, scopeFromMessage } from './typing';
