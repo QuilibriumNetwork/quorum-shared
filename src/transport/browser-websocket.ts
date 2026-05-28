@@ -38,6 +38,13 @@ export class BrowserWebSocketClient implements WebSocketClient {
   // Queue system
   private inboundQueue: EncryptedWebSocketMessage[] = [];
   private outboundQueue: Array<() => Promise<string[]>> = [];
+  // Envelopes produced by a prepareMessage callback (ratchet state
+  // already advanced + persisted) but not yet delivered to the WS layer.
+  // Pending sends survive a transient disconnect — without this buffer,
+  // an OPEN→CLOSING transition mid-drain silently drops the envelope
+  // after the ratchet had moved past it, leaving the recipient
+  // permanently missing that message.
+  private pendingEnvelopes: string[] = [];
   private isProcessing = false;
   private processIntervalId: ReturnType<typeof setInterval> | null = null;
 
@@ -271,17 +278,51 @@ export class BrowserWebSocketClient implements WebSocketClient {
         await Promise.allSettled(promises);
       }
 
-      // Process outbound messages only if connected
+      // Process outbound messages only if connected. Two-stage drain:
+      //
+      // 1. Flush pendingEnvelopes from prior runs (where prepareMessage
+      //    succeeded — advancing + persisting ratchet state — but the
+      //    subsequent ws.send failed due to a transient disconnect).
+      //    They must go out before any newly-prepared envelopes so the
+      //    recipient sees messages in ratchet order.
+      //
+      // 2. Drain outboundQueue. Re-check ws.readyState before EACH
+      //    ws.send because the encrypt step can take 50–200ms and the
+      //    socket can transition mid-drain. If a send fails, the
+      //    envelope returns to pendingEnvelopes for retry on the next
+      //    drain pass.
       if (this.ws?.readyState === WebSocket.OPEN) {
-        while (this.outboundQueue.length > 0) {
-          const prepareMessage = this.outboundQueue.shift()!;
+        while (this.pendingEnvelopes.length > 0 && this.ws?.readyState === WebSocket.OPEN) {
+          const m = this.pendingEnvelopes[0];
           try {
-            const messages = await prepareMessage();
-            for (const m of messages) {
-              this.ws.send(m);
-            }
+            this.ws.send(m);
+            this.pendingEnvelopes.shift();
+          } catch (error) {
+            console.error('Error flushing pending envelope:', error);
+            break;
+          }
+        }
+
+        while (this.outboundQueue.length > 0 && this.ws?.readyState === WebSocket.OPEN) {
+          const prepareMessage = this.outboundQueue.shift()!;
+          let messages: string[] = [];
+          try {
+            messages = await prepareMessage();
           } catch (error) {
             console.error('Error processing outbound message:', error);
+            continue;
+          }
+          for (const m of messages) {
+            if (this.ws?.readyState !== WebSocket.OPEN) {
+              this.pendingEnvelopes.push(m);
+              continue;
+            }
+            try {
+              this.ws.send(m);
+            } catch (error) {
+              console.error('Error sending outbound envelope:', error);
+              this.pendingEnvelopes.push(m);
+            }
           }
         }
       }

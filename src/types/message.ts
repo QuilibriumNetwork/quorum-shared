@@ -17,6 +17,7 @@ export type UpdateProfileMessage = {
   type: 'update-profile';
   displayName: string;
   userIcon: string;
+  bio?: string;
 };
 
 export type RemoveMessage = {
@@ -112,6 +113,83 @@ export type EditMessage = {
   editSignature?: string;
 };
 
+export type CallOfferMessage = {
+  senderId: string;
+  type: 'call-offer';
+  callId: string;
+  sdp: string;
+  mediaType: 'audio' | 'video';
+  relayCredentials: {
+    username: string;
+    password: string;
+    turnUrls: string[];
+    ttl: number;
+  };
+  circuitId: string;
+};
+
+export type CallAnswerMessage = {
+  senderId: string;
+  type: 'call-answer';
+  callId: string;
+  sdp: string;
+};
+
+export type CallRejectMessage = {
+  senderId: string;
+  type: 'call-reject';
+  callId: string;
+  reason: 'declined' | 'busy' | 'unavailable' | 'timeout';
+};
+
+export type CallHangupMessage = {
+  senderId: string;
+  type: 'call-hangup';
+  callId: string;
+};
+
+export type CallEventMessage = {
+  senderId: string;
+  type: 'call-event';
+  callId: string;
+  mediaType: 'audio' | 'video';
+  event: 'completed' | 'missed' | 'declined' | 'failed';
+  duration?: number;
+};
+
+export type CallIceCandidateMessage = {
+  senderId: string;
+  type: 'call-ice-candidate';
+  callId: string;
+  candidate: string;
+};
+
+export type CallRenegotiateMessage = {
+  senderId: string;
+  type: 'call-renegotiate';
+  callId: string;
+  sdp: string;
+  relayCredentials: {
+    username: string;
+    password: string;
+    turnUrls: string[];
+    ttl: number;
+  };
+};
+
+export type SpaceCallStartMessage = {
+  senderId: string;
+  type: 'space-call-start';
+  callId: string;
+  mediaType: 'audio' | 'video';
+};
+
+export type SpaceCallEndMessage = {
+  senderId: string;
+  type: 'space-call-end';
+  callId: string;
+};
+
 export type MessageContent =
   | PostMessage
   | EventMessage
@@ -127,7 +205,16 @@ export type MessageContent =
   | StickerMessage
   | PinMessage
   | DeleteConversationMessage
-  | EditMessage;
+  | EditMessage
+  | CallOfferMessage
+  | CallAnswerMessage
+  | CallRejectMessage
+  | CallHangupMessage
+  | CallIceCandidateMessage
+  | CallEventMessage
+  | CallRenegotiateMessage
+  | SpaceCallStartMessage
+  | SpaceCallEndMessage;
 
 export type Reaction = {
   emojiId: string;

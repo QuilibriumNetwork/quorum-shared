@@ -42,6 +42,13 @@ export class RNWebSocketClient implements WebSocketClient {
   // Queue system
   private inboundQueue: EncryptedWebSocketMessage[] = [];
   private outboundQueue: Array<() => Promise<string[]>> = [];
+  // Envelopes that have been produced by a prepareMessage callback
+  // (ratchet state already advanced + persisted) but not yet successfully
+  // delivered to the WS layer. Pending sends survive a transient
+  // disconnect — without this buffer, an OPEN→CLOSING transition mid-drain
+  // would silently drop the envelope after the ratchet had already moved
+  // past it, leaving the recipient permanently missing that message.
+  private pendingEnvelopes: string[] = [];
   private isProcessing = false;
   private processIntervalId: ReturnType<typeof setInterval> | null = null;
 
@@ -153,6 +160,12 @@ export class RNWebSocketClient implements WebSocketClient {
             }
 
             const message = JSON.parse(event.data) as EncryptedWebSocketMessage;
+
+            // Check for error responses from server
+            if ((message as any).error) {
+              logger.error('[WS-RN] Server error response:', (message as any).error);
+              return;
+            }
 
             // Only process messages that have the expected structure
             if (!message.inboxAddress && !message.encryptedContent) {
@@ -293,17 +306,53 @@ export class RNWebSocketClient implements WebSocketClient {
         await Promise.allSettled(promises);
       }
 
-      // Process outbound messages only if connected
+      // Process outbound messages only if connected. Two-stage drain:
+      //
+      // 1. Flush pendingEnvelopes — these were produced by a previous
+      //    prepareMessage call whose corresponding ws.send failed
+      //    (transient disconnect after ratchet state already advanced).
+      //    They must go out before any newly-prepared envelopes,
+      //    otherwise the recipient sees messages out of ratchet order.
+      //
+      // 2. Drain outboundQueue. Each prepareMessage produces N envelopes;
+      //    we re-check ws.readyState before EACH ws.send because the
+      //    encrypt step can take 50–200ms and the socket can transition
+      //    mid-drain. If a send fails (either by exception or because
+      //    readyState slipped), the envelope goes back into
+      //    pendingEnvelopes so the next processQueues pass retries it
+      //    rather than silently losing it.
       if (this.ws?.readyState === WebSocket.OPEN) {
-        while (this.outboundQueue.length > 0) {
-          const prepareMessage = this.outboundQueue.shift()!;
+        while (this.pendingEnvelopes.length > 0 && this.ws?.readyState === WebSocket.OPEN) {
+          const m = this.pendingEnvelopes[0];
           try {
-            const messages = await prepareMessage();
-            for (const m of messages) {
-              this.ws.send(m);
-            }
+            this.ws.send(m);
+            this.pendingEnvelopes.shift();
+          } catch (error) {
+            console.error('Error flushing pending envelope:', error);
+            break;
+          }
+        }
+
+        while (this.outboundQueue.length > 0 && this.ws?.readyState === WebSocket.OPEN) {
+          const prepareMessage = this.outboundQueue.shift()!;
+          let messages: string[] = [];
+          try {
+            messages = await prepareMessage();
           } catch (error) {
             console.error('Error processing outbound message:', error);
+            continue;
+          }
+          for (const m of messages) {
+            if (this.ws?.readyState !== WebSocket.OPEN) {
+              this.pendingEnvelopes.push(m);
+              continue;
+            }
+            try {
+              this.ws.send(m);
+            } catch (error) {
+              console.error('Error sending outbound envelope:', error);
+              this.pendingEnvelopes.push(m);
+            }
           }
         }
       }

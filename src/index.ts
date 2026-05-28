@@ -30,3 +30,6 @@ export * from './transport';
 
 // Sync (hash-based delta synchronization)
 export * from './sync';
+
+// Farcaster (hypersnap-first, legacy-fallback)
+export * from './farcaster';

@@ -35,6 +35,9 @@ export type UserConfig = {
   allowSync?: boolean;
   name?: string;
   profile_image?: string;
+  bio?: string;
+  isProfilePublic?: boolean;
+  farcasterLink?: FarcasterLink;
   spaceKeys?: {
     spaceId: string;
     encryptionState: {
@@ -64,6 +67,22 @@ export type UserProfile = {
   display_name?: string;
   profile_image?: string;
   bio?: string;
+};
+
+export type FarcasterLink = {
+  fid: number;
+  custodyAddress: string;
+  // Farcaster custody wallet signs the Quorum address — proves FC account owns this Quorum identity
+  farcasterSignature: string;
+  // Quorum Ed448 key signs the Farcaster custody address — proves Quorum identity acknowledges this FC account
+  quorumSignature: string;
+};
+
+export type PublicProfile = UserProfile & {
+  primary_username?: string;
+  shared_spaces?: string[];
+  isProfilePublic?: boolean;
+  farcaster?: FarcasterLink;
 };
 
 export type SpaceMember = UserProfile & {
