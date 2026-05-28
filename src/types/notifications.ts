@@ -13,7 +13,7 @@ import type { Message } from './message';
  * - 'mention-roles': @role mentions
  * - 'reply': Replies to user's messages
  */
-export type NotificationTypeId = 'mention-you' | 'mention-everyone' | 'mention-roles' | 'reply';
+export type SpaceNotificationTypeId = 'mention-you' | 'mention-everyone' | 'mention-roles' | 'reply';
 
 /**
  * Per-space notification settings
@@ -27,17 +27,17 @@ export interface SpaceNotificationSettings {
   spaceId: string;
 
   /** Array of enabled notification types (e.g., ['mention-you', 'mention-everyone', 'reply']) */
-  enabledNotificationTypes: NotificationTypeId[];
+  enabledNotificationTypes: SpaceNotificationTypeId[];
 
   /** When true, suppresses ALL notifications for this space (mutes entire space) */
   isMuted?: boolean;
 }
 
 /**
- * Option for the notification settings multiselect dropdown
+ * Option for the space notification settings multiselect dropdown
  */
-export interface NotificationSettingOption {
-  value: NotificationTypeId;
+export interface SpaceNotificationSettingOption {
+  value: SpaceNotificationTypeId;
   label: string;
   subtitle: string;
   disabled?: boolean;

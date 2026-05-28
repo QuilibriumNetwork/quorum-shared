@@ -75,9 +75,9 @@ export { BOOKMARKS_CONFIG } from './bookmark';
 
 // Notification types
 export type {
-  NotificationTypeId,
+  SpaceNotificationTypeId,
   SpaceNotificationSettings,
-  NotificationSettingOption,
+  SpaceNotificationSettingOption,
   ReplyNotification,
 } from './notifications';
 
