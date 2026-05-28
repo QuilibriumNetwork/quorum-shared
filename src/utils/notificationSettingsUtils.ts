@@ -6,7 +6,7 @@
 
 import type {
   SpaceNotificationSettings,
-  NotificationTypeId,
+  SpaceNotificationTypeId,
 } from '../types/notifications';
 
 /**
@@ -34,7 +34,7 @@ export function getDefaultNotificationSettings(
  */
 export function isNotificationTypeEnabled(
   settings: SpaceNotificationSettings | undefined,
-  notificationType: NotificationTypeId
+  notificationType: SpaceNotificationTypeId
 ): boolean {
   if (!settings) {
     // Default: all types enabled
