@@ -40,9 +40,17 @@ export const DANGEROUS_HTML_PATTERN = /<[a-zA-Z\/!?]/;
 
 /**
  * Maximum length for user input names (display names, space names, group names, channel names)
- * Centralized constant to ensure consistency across the application
+ * Centralized constant to ensure consistency across the application.
+ *
+ * Aligned to mobile's value (2026-05-28) per the "follow mobile patterns" workflow rule.
  */
-export const MAX_NAME_LENGTH = 40;
+export const MAX_NAME_LENGTH = 50;
+
+/**
+ * Minimum length for user input names (display names, space names, etc.).
+ * Aligned to mobile's value (2026-05-28).
+ */
+export const MIN_NAME_LENGTH = 2;
 
 /**
  * Maximum length for topic/description fields (channel topics, space descriptions)
