@@ -55,8 +55,6 @@ export type Channel = {
   mentions?: string;
   isReadOnly?: boolean;
   managerRoleIds?: string[];
-  isPinned?: boolean;
-  pinnedAt?: number;
   icon?: string;
   iconColor?: string;
   iconVariant?: 'outline' | 'filled';
