@@ -1,10 +1,17 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, createContext } from 'react';
 import clsx from 'clsx';
 import { ModalContainerProps } from './types';
 import { OverlayBackdrop } from '../../OverlayBackdrop';
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * Context exposing the current modal's animated close handler.
+ * Used by the close button in Modal so it can dismiss this specific modal
+ * (with animation) without affecting other open modals.
+ */
+export const ModalCloseContext = createContext<(() => void) | null>(null);
 
 export const ModalContainer: React.FC<ModalContainerProps> = ({
   visible,
@@ -127,34 +134,38 @@ export const ModalContainer: React.FC<ModalContainerProps> = ({
 
   if (!showBackdrop) {
     return (
-      <div
-        ref={containerRef}
-        className={contentClasses}
-        style={{ animationDuration: `${animationDuration}ms` }}
-        onKeyDown={handleKeyDown}
-      >
-        {children}
-      </div>
+      <ModalCloseContext.Provider value={handleClose}>
+        <div
+          ref={containerRef}
+          className={contentClasses}
+          style={{ animationDuration: `${animationDuration}ms` }}
+          onKeyDown={handleKeyDown}
+        >
+          {children}
+        </div>
+      </ModalCloseContext.Provider>
     );
   }
 
   return (
-    <OverlayBackdrop
-      visible={true}
-      onBackdropClick={handleBackdropClick}
-      zIndex={zIndex}
-      blur={backdropBlur}
-      closeOnBackdropClick={closeOnBackdropClick}
-    >
-      <div
-        ref={containerRef}
-        className={contentClasses}
-        onClick={(e) => e.stopPropagation()}
-        style={{ animationDuration: `${animationDuration}ms` }}
-        onKeyDown={handleKeyDown}
+    <ModalCloseContext.Provider value={handleClose}>
+      <OverlayBackdrop
+        visible={true}
+        onBackdropClick={handleBackdropClick}
+        zIndex={zIndex}
+        blur={backdropBlur}
+        closeOnBackdropClick={closeOnBackdropClick}
       >
-        {children}
-      </div>
-    </OverlayBackdrop>
+        <div
+          ref={containerRef}
+          className={contentClasses}
+          onClick={(e) => e.stopPropagation()}
+          style={{ animationDuration: `${animationDuration}ms` }}
+          onKeyDown={handleKeyDown}
+        >
+          {children}
+        </div>
+      </OverlayBackdrop>
+    </ModalCloseContext.Provider>
   );
 };
