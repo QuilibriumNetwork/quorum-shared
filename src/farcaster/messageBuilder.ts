@@ -335,12 +335,21 @@ export function blake3_20(data: Uint8Array): Uint8Array {
 
 export function encodeMessageEnvelope(input: MessageEnvelopeInput): Uint8Array {
   const w = new ProtoWriter();
-  // field 1 (data): we use the bytes form (field 7) to ensure stable signing
-  // bytes. We still emit field 1 with the same MessageData so libraries that
-  // parse `data` instead of `data_bytes` still see the body.
-  // …but to stay consistent with the on-the-wire requirements we set data_bytes
-  // only and leave field 1 absent. The hub accepts either form per
-  // message.proto:17.
+  // Emit BOTH field 1 (data) and field 7 (data_bytes) with the same
+  // payload. Two reasons:
+  //   - `validate_message` checks the BLAKE3 hash against `data_bytes`
+  //     when present (preferred), then falls back to re-serializing
+  //     `data`. Sending `data_bytes` keeps the hash check stable
+  //     regardless of whether the receiver's prost re-encoder produces
+  //     byte-identical output.
+  //   - The merge path (e.g. `merge_key_add`) reads `message.data`
+  //     directly. If we only send `data_bytes`, `message.data` is
+  //     `None`, the merge returns `NoMessageData`, and the gasless
+  //     signer is silently dropped (the submitMessage RPC still
+  //     returns OK because the simulation step decoded data_bytes).
+  // Sub-message wire-format = length-delimited bytes; the encoded
+  // MessageData is byte-for-byte the same in both fields.
+  w.writeSubMessage(1, input.dataBytes);
   w.writeBytesField(2, input.hash);
   w.writeVarintField(3, HashScheme.BLAKE3);
   w.writeBytesField(4, input.signature);
@@ -371,18 +380,30 @@ export interface FarcasterSigner {
 }
 
 /** End-to-end: encode MessageData → hash → sign → wrap in envelope. */
+export interface SignedFarcasterMessage {
+  /** Protobuf-encoded message envelope ready for submission. */
+  envelope: Uint8Array;
+  /** 20-byte BLAKE3 hash that uniquely identifies this message. Callers
+   *  often need this — the cast hash for newly-published casts is
+   *  derived here and consumers (miniapp resolver, optimistic feed
+   *  update, telemetry) want the canonical id without parsing the
+   *  protobuf response. */
+  hash: Uint8Array;
+}
+
 export async function buildSignedMessage(
   data: MessageDataInput,
   signer: FarcasterSigner,
-): Promise<Uint8Array> {
+): Promise<SignedFarcasterMessage> {
   const dataBytes = encodeMessageData(data);
   const hash = blake3_20(dataBytes);
   const signature = await signer.sign(hash);
-  return encodeMessageEnvelope({
+  const envelope = encodeMessageEnvelope({
     dataBytes,
     hash,
     signature,
     signatureScheme: signer.scheme,
     signer: signer.publicKey,
   });
+  return { envelope, hash };
 }

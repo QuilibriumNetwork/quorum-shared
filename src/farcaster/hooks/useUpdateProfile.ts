@@ -111,7 +111,7 @@ export function useUpdateProfile(options: UseUpdateProfileOptions) {
       if (signer) {
         for (const c of candidates) {
           try {
-            const envelope = await buildSignedMessage(
+            const { envelope } = await buildSignedMessage(
               {
                 type: MessageType.USER_DATA_ADD,
                 fid: fid as number,

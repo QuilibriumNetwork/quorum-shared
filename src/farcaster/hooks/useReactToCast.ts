@@ -62,7 +62,7 @@ export function useReactToCast(options: UseReactToCastOptions) {
           const record = await options.signerStore.get();
           if (record && record.fid === fid) {
             const signer = signerFromRecord(record);
-            const envelope = await buildSignedMessage(
+            const { envelope } = await buildSignedMessage(
               {
                 type: params.remove ? MessageType.REACTION_REMOVE : MessageType.REACTION_ADD,
                 fid: fid as number,

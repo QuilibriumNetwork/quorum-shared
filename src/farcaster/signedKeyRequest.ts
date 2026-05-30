@@ -11,6 +11,7 @@
 
 import { keccak_256 } from '@noble/hashes/sha3.js';
 import { secp256k1 } from '@noble/curves/secp256k1.js';
+import { logger } from '../utils/logger';
 
 export const KEY_DOMAIN_NAME = 'Farcaster KeyAdd';
 export const KEY_DOMAIN_VERSION = '1';
@@ -236,22 +237,47 @@ export function signEip712Digest(digest: Uint8Array, custodyPrivateKey: Uint8Arr
   if (custodyPrivateKey.length !== 32) {
     throw new Error('signEip712Digest: custody private key must be 32 bytes');
   }
-  // noble v2 with format: 'recovered' returns 65 bytes: compact (r||s) +
-  // 1-byte recovery id (0 or 1).
-  const recovered = secp256k1.sign(digest, custodyPrivateKey, {
+  // Diagnostic: dump the raw signature bytes so we can see exactly what
+  // noble is producing on Hermes.
+  const recoveredBytes = secp256k1.sign(digest, custodyPrivateKey, {
     prehash: false,
     format: 'recovered',
   });
-  if (recovered.length !== 65) {
-    throw new Error(`signEip712Digest: expected 65-byte recovered signature, got ${recovered.length}`);
-  }
-  const recovery = recovered[64];
+  const headHex = Array.from(recoveredBytes.slice(0, 8))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+  const tailHex = Array.from(recoveredBytes.slice(-8))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+  logger.log(
+    `[signedKeyRequest] sign output: length=${recoveredBytes.length}, head=${headHex}, tail=${tailHex}, b0=${recoveredBytes[0]}, b64=${recoveredBytes[64]}`,
+  );
+
+  const sig = secp256k1.Signature.fromBytes(recoveredBytes, 'recovered');
+  const recovery = sig.recovery;
+  logger.log(`[signedKeyRequest] parsed sig.recovery=${recovery}`);
+
   if (recovery !== 0 && recovery !== 1) {
     throw new Error(`signEip712Digest: unexpected recovery id ${recovery}`);
   }
+  const compact = sig.toBytes('compact');
+  if (compact.length !== 64) {
+    throw new Error(`signEip712Digest: compact signature is ${compact.length} bytes, expected 64`);
+  }
   const out = new Uint8Array(65);
-  out.set(recovered.subarray(0, 64), 0);
-  out[64] = recovery + 27;
+  out.set(compact, 0);       // out[0..64] = r || s
+  out[64] = recovery + 27;   // out[64] = v (27 or 28)
+  // Final wire-format signature: r || s || v(27/28). Logged so we can
+  // verify the byte order on the wire matches Ethereum convention; if
+  // an EIP-712 recovery elsewhere disagrees, the bytes here are the
+  // ground truth.
+  const finalHead = Array.from(out.slice(0, 4))
+    .map((b) => b.toString(16).padStart(2, '0')).join('');
+  const finalTail = Array.from(out.slice(-4))
+    .map((b) => b.toString(16).padStart(2, '0')).join('');
+  logger.log(
+    `[signedKeyRequest] FINAL signature (r||s||v): length=${out.length}, head=${finalHead}, tail=${finalTail}, v=${out[64]} (0x${out[64].toString(16)})`,
+  );
   return out;
 }
 

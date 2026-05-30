@@ -92,6 +92,18 @@ export interface HypersnapCastResponse {
   cast: HypersnapCast;
 }
 
+/** A cast in a conversation tree — same as HypersnapCast, plus nested
+ *  `direct_replies` (recursively, up to the request's `reply_depth`). */
+export interface HypersnapConversationCast extends HypersnapCast {
+  direct_replies?: HypersnapConversationCast[];
+}
+
+export interface HypersnapConversationResponse {
+  conversation: {
+    cast: HypersnapConversationCast;
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Legacy farcaster.xyz / client.warpcast.com shapes.
 // ---------------------------------------------------------------------------
@@ -259,8 +271,11 @@ export interface NormalizedCast {
   hash: string;
   /** Parent cast hash (for replies). 0x-prefixed when present. */
   parentHash?: string;
-  /** Parent URL (channel cast). */
+  /** Parent URL (channel cast, or external URL the cast replies to). */
   parentUrl?: string;
+  /** Author of the parent cast — only the FID is reliably available from
+   *  hypersnap; username/displayName are looked up separately. */
+  parentAuthor?: { fid: number };
   /** Thread root hash. */
   threadHash?: string;
   /** Milliseconds since epoch. */

@@ -23,6 +23,25 @@ export {
 } from './useFarcasterUsersBulk';
 
 export {
+  useFarcasterCast,
+  fetchFarcasterCast,
+  type UseFarcasterCastOptions,
+} from './useFarcasterCast';
+
+export {
+  useFarcasterCastByUrl,
+  fetchFarcasterCastByUrl,
+  type UseFarcasterCastByUrlOptions,
+} from './useFarcasterCastByUrl';
+
+export {
+  useFarcasterChannelByParentUrl,
+  fetchChannelByParentUrl,
+  type FarcasterChannelInfo,
+  type UseFarcasterChannelByParentUrlOptions,
+} from './useFarcasterChannelByParentUrl';
+
+export {
   useHomeFeed,
   flattenHomeFeed,
   type HomeFeedPage,

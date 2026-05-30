@@ -22,6 +22,13 @@ export interface UseFarcasterUserOptions {
   legacy?: LegacyFarcasterClient;
   /** Override the React Query stale time. */
   staleTime?: number;
+  /** Override the React Query garbage-collection time. Pass `Infinity` to
+   *  pin the entry in memory for the lifetime of the QueryClient. */
+  gcTime?: number;
+  /** Optional seed value rendered instantly while a fresh fetch runs in
+   *  the background. Use to lift data out of an external cache (MMKV,
+   *  AsyncStorage) on mount. */
+  initialData?: NormalizedUser | null;
 }
 
 /** Imperative fetcher used by mutations / overlay hooks. */
@@ -56,5 +63,7 @@ export function useFarcasterUser(
     queryFn: () => fetchFarcasterUser(fid as number, options),
     enabled,
     staleTime: options.staleTime ?? STALE_TIME_MS,
+    gcTime: options.gcTime,
+    initialData: options.initialData ?? undefined,
   } satisfies UseQueryOptions<NormalizedUser | null, Error>);
 }

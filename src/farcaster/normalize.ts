@@ -77,11 +77,83 @@ function fromLegacyAuthor(u: LegacyAuthor): NormalizedAuthor {
 // Embeds
 // ---------------------------------------------------------------------------
 
+// Heuristics for classifying hypersnap's bare-URL embeds. Hypersnap doesn't
+// run OG enrichment server-side, so the only signal we have is the URL
+// itself. We look at the extension and known image-CDN hosts.
+const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp|avif|bmp|svg)(\?|$)/i;
+const VIDEO_EXT_RE = /\.(mp4|mov|webm|m4v|m3u8)(\?|$)/i;
+const KNOWN_IMAGE_HOSTS = new Set([
+  'imagedelivery.net',
+  'i.imgur.com',
+  'pbs.twimg.com',
+  'media.farcaster.xyz',
+]);
+
+function classifyBareUrl(url: string): NormalizedEmbed {
+  let host: string | undefined;
+  try {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    return { url };
+  }
+  if (IMAGE_EXT_RE.test(url) || (host && KNOWN_IMAGE_HOSTS.has(host))) {
+    return { url, image: { url } };
+  }
+  if (VIDEO_EXT_RE.test(url)) {
+    return { url, video: { url } };
+  }
+  return { url };
+}
+
+/**
+ * Try to read a Farcaster cast hash out of a `farcaster.xyz/<user>/0x<hash>`
+ * URL so we can dedupe a URL embed against a sibling cast_id embed that
+ * points at the same cast. The farcaster.xyz app sometimes ships both
+ * forms in the same cast — protocol-allowed, but visually it just renders
+ * the same quote twice.
+ */
+function castHashFromFarcasterUrl(url: string): string | null {
+  const m = url.match(/farcaster\.xyz\/[^\/]+\/(0x[a-fA-F0-9]+)/);
+  return m ? m[1].toLowerCase() : null;
+}
+
 function fromHypersnapEmbeds(embeds: HypersnapCast['embeds']): NormalizedEmbed[] {
-  return embeds.map((e): NormalizedEmbed => {
-    if ('url' in e) return { url: e.url };
-    return { castId: { fid: e.cast_id.fid, hash: normalizeHash(e.cast_id.hash) } };
-  });
+  const out: NormalizedEmbed[] = [];
+  const seenUrls = new Set<string>();
+  const seenCastHashes = new Set<string>();
+  // First pass: collect cast_id hashes so we can suppress URL embeds that
+  // duplicate them. Hypersnap doesn't dedupe across embed types.
+  for (const e of embeds) {
+    if ('cast_id' in e) {
+      seenCastHashes.add(normalizeHash(e.cast_id.hash).toLowerCase());
+    }
+  }
+  for (const e of embeds) {
+    if ('url' in e) {
+      // Skip duplicate URL strings (farcaster.xyz client bug repeats them).
+      const key = e.url;
+      if (seenUrls.has(key)) continue;
+      seenUrls.add(key);
+      // Skip farcaster.xyz cast links when the same cast is already
+      // attached as a cast_id embed.
+      const farcasterHash = castHashFromFarcasterUrl(e.url);
+      if (farcasterHash) {
+        const full = farcasterHash.startsWith('0x') ? farcasterHash : `0x${farcasterHash}`;
+        const dupExists = Array.from(seenCastHashes).some(
+          (h) => h.startsWith(full) || full.startsWith(h),
+        );
+        if (dupExists) continue;
+      }
+      out.push(classifyBareUrl(e.url));
+      continue;
+    }
+    const hash = normalizeHash(e.cast_id.hash).toLowerCase();
+    // Dedupe sibling cast_id embeds.
+    if (seenUrls.has(`__cast:${hash}`)) continue;
+    seenUrls.add(`__cast:${hash}`);
+    out.push({ castId: { fid: e.cast_id.fid, hash: normalizeHash(e.cast_id.hash) } });
+  }
+  return out;
 }
 
 function fromLegacyEmbeds(embeds: LegacyCast['embeds']): NormalizedEmbed[] {
@@ -126,6 +198,63 @@ function fromLegacyEmbeds(embeds: LegacyCast['embeds']): NormalizedEmbed[] {
 }
 
 // ---------------------------------------------------------------------------
+// Mention substitution (hypersnap-only)
+// ---------------------------------------------------------------------------
+
+/**
+ * Hypersnap returns cast text with @-mentions stripped out and the FID +
+ * byte-offset stored separately in `mentioned_profiles` /
+ * `mentioned_profiles_ranges`. Legacy returns text with @usernames already
+ * inline. To keep the renderer simple we substitute the @usernames into the
+ * text here so all downstream code sees the same shape.
+ *
+ * Positions are UTF-8 byte offsets, not JS character offsets — `é`, curly
+ * quotes, emoji, etc. occupy multiple bytes. We convert each byte offset
+ * to its JS char index by decoding the byte prefix.
+ */
+function byteOffsetToCharOffset(text: string, byteOffset: number): number {
+  if (byteOffset <= 0) return 0;
+  const enc = new TextEncoder();
+  const bytes = enc.encode(text);
+  if (byteOffset >= bytes.length) return text.length;
+  const prefix = new TextDecoder().decode(bytes.subarray(0, byteOffset));
+  return prefix.length;
+}
+
+export function substituteHypersnapMentions(
+  text: string,
+  ranges: { start: number }[],
+  profiles: { username: string; fid: number }[],
+): string {
+  if (ranges.length === 0 || profiles.length === 0) return text;
+  // Pair each range with its profile (by index — hypersnap guarantees
+  // alignment) and skip any with a missing username.
+  const insertions = ranges
+    .map((r, i) => {
+      const profile = profiles[i];
+      if (!profile?.username) return null;
+      return { byteOffset: r.start, handle: `@${profile.username}` };
+    })
+    .filter((x): x is { byteOffset: number; handle: string } => x !== null)
+    // Insert right-to-left so earlier char offsets stay valid as we mutate.
+    .sort((a, b) => b.byteOffset - a.byteOffset);
+
+  let result = text;
+  for (const ins of insertions) {
+    // Always resolve against the ORIGINAL text — byte offsets are reported
+    // pre-substitution. Computing this once per insertion is fine since
+    // mentions per cast are typically <5.
+    const charOffset = byteOffsetToCharOffset(text, ins.byteOffset);
+    // Adjust char offset for prior right-side insertions: since we walk
+    // right-to-left, all not-yet-applied insertions are to the LEFT of
+    // this one, so we don't need to shift. But applied insertions are to
+    // the RIGHT, so the prefix length up to charOffset hasn't changed.
+    result = result.slice(0, charOffset) + ins.handle + result.slice(charOffset);
+  }
+  return result;
+}
+
+// ---------------------------------------------------------------------------
 // Casts
 // ---------------------------------------------------------------------------
 
@@ -138,9 +267,16 @@ export function fromHypersnapCast(c: HypersnapCast): NormalizedCast {
     hash: normalizeHash(c.hash),
     parentHash: c.parent_hash ? normalizeHash(c.parent_hash) : undefined,
     parentUrl: c.parent_url,
+    parentAuthor: c.parent_author?.fid != null
+      ? { fid: c.parent_author.fid }
+      : undefined,
     threadHash: c.thread_hash ? normalizeHash(c.thread_hash) : undefined,
     timestamp: timestampToMs(c.timestamp),
-    text: c.text,
+    text: substituteHypersnapMentions(
+      c.text,
+      c.mentioned_profiles_ranges,
+      c.mentioned_profiles,
+    ),
     author: fromHypersnapAuthor(c.author),
     embeds: fromHypersnapEmbeds(c.embeds),
     mentions,
@@ -164,6 +300,9 @@ export function fromLegacyCast(c: LegacyCast): NormalizedCast {
     hash: normalizeHash(c.hash),
     parentHash: c.parentHash ? normalizeHash(c.parentHash) : undefined,
     parentUrl: c.parentUrl,
+    // Legacy v2/feed-items doesn't expose parent author FID on the cast,
+    // so this stays undefined on the legacy path.
+    parentAuthor: undefined,
     threadHash: c.threadHash ? normalizeHash(c.threadHash) : undefined,
     timestamp: timestampToMs(c.timestamp),
     text: c.text,

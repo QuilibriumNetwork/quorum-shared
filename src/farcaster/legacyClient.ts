@@ -5,6 +5,7 @@
  * opted into a Hypersnap signer.
  */
 
+import { logger } from '../utils/logger';
 import type {
   LegacyAuthor,
   LegacyCast,
@@ -81,7 +82,10 @@ interface UserResponse {
 
 interface SubmitCastBody {
   text: string;
-  embeds?: { url: string }[];
+  /** Plain URL strings. The server-side validator switched from
+   *  `{ url }` objects to flat strings; an object embed now 400s with
+   *  `/embeds/0 must be string`. */
+  embeds?: string[];
   parent?: { hash: string };
   channelKey?: string;
 }
@@ -226,16 +230,32 @@ export class LegacyFarcasterClient {
   // -------------------------------------------------------------------------
 
   async submitCast(body: SubmitCastBody, token: string): Promise<LegacyCast | null> {
-    const res = await this.request<CastSubmissionResponse>(
-      `${CLIENT_FARCASTER_BASE_URL}/v2/casts`,
-      {
-        method: 'POST',
-        body,
-        token,
-        headers: { 'idempotency-key': this.newIdempotencyKey() },
-      },
-    );
-    return res.result?.cast ?? null;
+    // Log the outgoing body before we send. The server response shape
+    // (especially around embed acceptance) varies, so a paired
+    // log/response pair makes triage trivial — you can see exactly
+    // what we sent and what came back without instrumenting deeper.
+    logger.log('[legacy] POST /v2/casts body:', JSON.stringify(body));
+    try {
+      const res = await this.request<CastSubmissionResponse>(
+        `${CLIENT_FARCASTER_BASE_URL}/v2/casts`,
+        {
+          method: 'POST',
+          body,
+          token,
+          headers: { 'idempotency-key': this.newIdempotencyKey() },
+        },
+      );
+      logger.log(
+        '[legacy] POST /v2/casts result hash:',
+        res.result?.cast?.hash,
+        'embeds:',
+        JSON.stringify((res.result?.cast as { embeds?: unknown } | undefined)?.embeds),
+      );
+      return res.result?.cast ?? null;
+    } catch (e) {
+      logger.warn('[legacy] POST /v2/casts failed:', e instanceof Error ? e.message : String(e));
+      throw e;
+    }
   }
 
   async deleteCast(castHash: string, token: string): Promise<void> {

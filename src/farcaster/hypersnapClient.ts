@@ -5,9 +5,11 @@
  * ./types.ts.
  */
 
+import { logger } from '../utils/logger';
 import type {
   HypersnapCast,
   HypersnapCastResponse,
+  HypersnapConversationResponse,
   HypersnapFeedResponse,
   HypersnapUser,
   HypersnapUserResponse,
@@ -189,6 +191,123 @@ export class HypersnapClient {
     return res.cast;
   }
 
+  /**
+   * Fetch the conversation tree rooted at a cast. The response includes
+   * the root cast plus `direct_replies` (recursively, up to `reply_depth`).
+   * `reply_depth` is clamped to 5 server-side; pass 0 to skip replies.
+   */
+  async getCastConversation(
+    hash: string,
+    opts: { replyDepth?: number } = {},
+  ): Promise<HypersnapConversationResponse> {
+    const stripped = hash.toLowerCase().startsWith('0x') ? hash.slice(2) : hash;
+    return this.get<HypersnapConversationResponse>('/v2/farcaster/cast/conversation', {
+      identifier: stripped,
+      type: 'hash',
+      reply_depth: opts.replyDepth ?? 5,
+    });
+  }
+
+  /**
+   * Look up channel metadata by its `parent_url` identifier (the URI form
+   * casts carry — legacy `https://warpcast.com/~/channel/<slug>` or newer
+   * Zora/Optimism `chain://eip155:<chain>/erc721:<contract>` URIs).
+   */
+  async getChannelByParentUrl(parentUrl: string): Promise<{
+    id: string;
+    name: string;
+    url?: string;
+    parent_url?: string;
+    image_url?: string;
+    description?: string;
+    member_count?: number;
+  } | null> {
+    try {
+      const res = await this.get<{ channel?: {
+        id: string;
+        name: string;
+        url?: string;
+        parent_url?: string;
+        image_url?: string;
+        description?: string;
+        member_count?: number;
+      } }>(
+        '/v2/farcaster/channel',
+        { id: parentUrl, type: 'parent_url' },
+      );
+      return res.channel ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * List Ed25519 signers hypersnap currently considers valid for the
+   * given FID — including both Optimism on-chain (KeyRegistry events)
+   * AND off-chain gasless KEY_ADD messages submitted via
+   * `/v1/submitMessage`. Endpoint: `GET /v1/signersByFid?fid=N`.
+   *
+   * NOTE: an earlier draft of this method called `/v2/farcaster/signer`,
+   * which only enumerates the on-chain (KeyRegistry) subset. That
+   * caused every app launch to think our just-provisioned gasless
+   * signer was missing and reprovision again. The correct list
+   * endpoint is `/v1/signersByFid`, which returns both sources.
+   *
+   * Response shape:
+   *   {
+   *     signers: [{ source, key: "0x<hex>", keyType, fid, addedAt, ttl, ... }, ...],
+   *     gaslessSignerCount: N,
+   *     gaslessSignerLimit: N,
+   *     ...
+   *   }
+   *
+   * Returns the pubkey hex strings (lowercase, no `0x` prefix). Empty
+   * array on transport / shape failure; the caller should treat empty
+   * as "unknown" rather than "absent" so a transient hub error doesn't
+   * trigger a destructive reprovision.
+   */
+  async listSnapchainSignersByFid(fid: number): Promise<string[]> {
+    interface HttpSigner {
+      key?: string;
+      keyType?: number;
+      source?: string;
+      fid?: number;
+      addedAt?: number;
+      expiresAt?: number;
+    }
+    interface SignersByFidResponse {
+      signers?: HttpSigner[];
+      nextPageToken?: string;
+      gaslessSignerCount?: number;
+      gaslessSignerLimit?: number;
+    }
+    const path = `/v1/signersByFid?fid=${fid}`;
+    try {
+      const url = `${this.baseUrl}${path}`;
+      const response = await this.fetchImpl(url, {
+        method: 'GET',
+        headers: { accept: 'application/json' },
+      });
+      if (!response.ok) {
+        logger.warn(`[hypersnap] GET ${path} -> ${response.status}`);
+        return [];
+      }
+      const json = (await response.json()) as SignersByFidResponse;
+      const signers = json.signers ?? [];
+      const keys = signers
+        .map((s) => s.key)
+        .filter((k): k is string => typeof k === 'string' && k.length > 0)
+        .map((k) => k.toLowerCase().replace(/^0x/, ''));
+      logger.log(
+        `[hypersnap] GET ${path} -> ${keys.length} signer(s) (gasless: ${json.gaslessSignerCount ?? '?'}/${json.gaslessSignerLimit ?? '?'})`,
+      );
+      return keys;
+    } catch (e) {
+      logger.warn(`[hypersnap] GET ${path} threw:`, e instanceof Error ? e.message : String(e));
+      return [];
+    }
+  }
+
   // -------------------------------------------------------------------------
   // Writes
   // -------------------------------------------------------------------------
@@ -201,6 +320,27 @@ export class HypersnapClient {
     const url = `${this.baseUrl}/v1/submitMessage`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), opts.timeoutMs ?? this.timeoutMs);
+
+    // Encode the protobuf bytes as base64 in the log so a failing
+    // submission can be replayed (e.g. against a local node) without
+    // re-running the signing flow.
+    let envelopeBase64 = '';
+    try {
+      let bin = '';
+      for (let i = 0; i < body.length; i++) bin += String.fromCharCode(body[i]);
+      envelopeBase64 =
+        typeof (globalThis as { btoa?: (s: string) => string }).btoa === 'function'
+          ? (globalThis as { btoa: (s: string) => string }).btoa(bin)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          : (globalThis as any).Buffer
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            ? (globalThis as any).Buffer.from(body).toString('base64')
+            : '';
+    } catch { /* ignore */ }
+    logger.log(
+      '[hypersnap] POST /v1/submitMessage',
+      JSON.stringify({ bytes: body.length, base64: envelopeBase64 }),
+    );
 
     let response: Response;
     try {
@@ -223,6 +363,11 @@ export class HypersnapClient {
     if (!response.ok) {
       let detail = '';
       try { detail = (await response.text()).slice(0, 500); } catch { /* ignore */ }
+      logger.warn(
+        '[hypersnap] POST /v1/submitMessage failed:',
+        response.status,
+        detail,
+      );
       throw new HypersnapError(
         `submitMessage HTTP ${response.status}${detail ? `: ${detail}` : ''}`,
         response.status,
@@ -230,7 +375,9 @@ export class HypersnapClient {
       );
     }
 
-    return await response.json();
+    const json = await response.json();
+    logger.log('[hypersnap] POST /v1/submitMessage ok');
+    return json;
   }
 }
 

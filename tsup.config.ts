@@ -30,13 +30,17 @@ export default defineConfig([
       options.resolveExtensions = ['.web.tsx', '.web.ts', '.tsx', '.ts', '.js'];
     },
   },
-  // Native build (consumed by Metro via react-native condition)
+  // Native build (consumed by Metro via react-native condition).
+  // ESM-only transitive deps (multiformats@13+) are bundled inline rather
+  // than externalized — Metro's CJS runtime can't load them via require(),
+  // so leaving them as inlined code sidesteps the resolution issue entirely.
   {
     entry: { 'index.native': 'src/index.ts' },
     outDir: 'dist',
     format: ['cjs'],
     clean: false, // Don't clean — web build already ran
     external,
+    noExternal: ['multiformats'],
     esbuildOptions(options) {
       options.resolveExtensions = ['.native.tsx', '.native.ts', '.tsx', '.ts', '.js'];
     },
