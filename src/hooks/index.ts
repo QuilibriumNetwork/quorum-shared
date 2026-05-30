@@ -1,6 +1,13 @@
 /**
- * Shared React Query hooks
+ * Shared React hooks
  */
+
+// UI primitives
+export { useTwoStepConfirm } from './useTwoStepConfirm';
+export type {
+  UseTwoStepConfirmOptions,
+  UseTwoStepConfirmResult,
+} from './useTwoStepConfirm';
 
 // Query keys
 export { queryKeys } from './keys';

@@ -42,3 +42,6 @@ export * from './primitives';
 
 // Farcaster (hypersnap-first, legacy-fallback)
 export * from './farcaster';
+
+// Validation (errorKey-pattern field validators)
+export * from './validation';
