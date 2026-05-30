@@ -39,6 +39,7 @@ export type IconName =
   | 'menu'
   | 'dots'
   | 'dots-vertical'
+  | 'grip-vertical'
   | 'refresh'
   | 'external-link'
   | 'filter'
