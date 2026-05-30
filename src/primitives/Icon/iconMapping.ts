@@ -49,6 +49,7 @@ export const iconComponentMap: Record<IconName, string> = {
   menu: 'IconMenu2',
   dots: 'IconDots',
   'dots-vertical': 'IconDotsVertical',
+  'grip-vertical': 'IconGripVertical',
   refresh: 'IconRefresh',
   'external-link': 'IconExternalLink',
   filter: 'IconFilter',
