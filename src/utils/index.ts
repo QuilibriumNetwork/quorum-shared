@@ -8,6 +8,7 @@ export * from './formatting';
 export * from './encoding';
 export * from './logger';
 export * from './permissions';
+export * from './roleUtils';
 export * from './channelPermissions';
 export * from './channelUtils';
 export * from './messageGrouping';
