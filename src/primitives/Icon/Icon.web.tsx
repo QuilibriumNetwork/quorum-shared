@@ -3,6 +3,7 @@ import React from 'react';
 import * as IconLibrary from '@tabler/icons-react';
 import { IconWebProps, IconSize } from './types';
 import { iconComponentMap } from './iconMapping';
+import { customIcons, isCustomIcon } from './customIcons';
 
 // Convert semantic size to pixel size
 const getSizeValue = (size: IconSize): number => {
@@ -39,6 +40,10 @@ export function Icon({
   if (!iconComponentName) {
     logger.warn(`Icon "${name}" not found in icon mapping`);
     return null;
+  }
+
+  if (isCustomIcon(name)) {
+    return renderCustomIcon();
   }
 
   // Allow global flag to override variant for quick testing (development only)
@@ -107,6 +112,39 @@ export function Icon({
         id={id}
         onClick={onClick}
       />
+    );
+  }
+
+  function renderCustomIcon() {
+    const def = customIcons[name];
+    const iconSize = getSizeValue(size);
+    let iconColor = (style && style.color) || color || 'currentColor';
+    if (iconColor === 'inherit') iconColor = 'currentColor';
+
+    const combinedStyle = {
+      ...(disabled && { opacity: 0.5 }),
+      ...(onClick && { cursor: 'pointer' }),
+      ...style,
+      color: iconColor,
+    };
+
+    return (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox={def.viewBox}
+        width={iconSize}
+        height={iconSize}
+        fill="currentColor"
+        className={className}
+        style={combinedStyle}
+        id={id}
+        onClick={onClick}
+        aria-hidden="true"
+      >
+        {def.paths.map((p, i) => (
+          <path key={i} d={p.d} fill={p.fill} fillRule={p.fillRule} />
+        ))}
+      </svg>
     );
   }
 }

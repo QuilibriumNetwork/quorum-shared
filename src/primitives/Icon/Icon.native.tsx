@@ -1,9 +1,11 @@
 import { logger } from '../../utils';
 import React from 'react';
 import { TouchableOpacity } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import * as IconLibrary from '@tabler/icons-react-native';
 import { IconNativeProps, IconSize } from './types';
 import { iconComponentMap } from './iconMapping';
+import { customIcons, isCustomIcon } from './customIcons';
 import { useTheme } from '../theme';
 
 // Convert semantic size to pixel size (same as web)
@@ -44,6 +46,38 @@ export function Icon({
   if (!iconComponentName) {
     logger.warn(`Icon "${name}" not found in icon mapping`);
     return null;
+  }
+
+  if (isCustomIcon(name)) {
+    const def = customIcons[name];
+    const iconSize = getSizeValue(size);
+    const iconColor = color || colors.text.main;
+    const combinedStyle = {
+      ...(disabled && { opacity: 0.5 }),
+      ...style,
+    };
+
+    const svg = (
+      <Svg
+        width={iconSize}
+        height={iconSize}
+        viewBox={def.viewBox}
+        style={combinedStyle}
+      >
+        {def.paths.map((p, i) => (
+          <Path key={i} d={p.d} fill={iconColor} fillRule={p.fillRule} />
+        ))}
+      </Svg>
+    );
+
+    if (onClick && !disabled) {
+      return (
+        <TouchableOpacity onPress={onClick} activeOpacity={0.7}>
+          {svg}
+        </TouchableOpacity>
+      );
+    }
+    return svg;
   }
 
   // Determine final component name based on variant

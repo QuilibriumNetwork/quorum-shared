@@ -41,9 +41,13 @@ export type IconName =
   | 'dots-vertical'
   | 'grip-vertical'
   | 'refresh'
+  | 'repeat'
   | 'external-link'
   | 'filter'
   | 'sort'
+  | 'layout-grid-add'
+  | 'grid-dots'
+  | 'list-search'
 
   // Actions
   | 'reply'
@@ -75,6 +79,8 @@ export type IconName =
   | 'user-x'
   | 'user-minus'
   | 'user-question'
+  | 'user-search'
+  | 'message-search'
   | 'party'
   | 'gift'
   | 'hand-peace'
@@ -85,6 +91,7 @@ export type IconName =
   | 'smile'
   | 'mood-happy'
   | 'heart'
+  | 'heart-off'
   | 'star'
   | 'star-off'
   | 'eye'
@@ -172,7 +179,11 @@ export type IconName =
   | 'ai'
   | 'fire'
   | 'globe'
-  | 'plane';
+  | 'globe-search'
+  | 'plane'
+
+  // Custom SVG icons
+  | 'farcaster';
 
 export type IconSize =
   | 'xs'

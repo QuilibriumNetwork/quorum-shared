@@ -51,9 +51,13 @@ export const iconComponentMap: Record<IconName, string> = {
   'dots-vertical': 'IconDotsVertical',
   'grip-vertical': 'IconGripVertical',
   refresh: 'IconRefresh',
+  repeat: 'IconRepeat',
   'external-link': 'IconExternalLink',
   filter: 'IconFilter',
   sort: 'IconArrowsSort',
+  'layout-grid-add': 'IconLayoutGridAdd',
+  'grid-dots': 'IconGridDots',
+  'list-search': 'IconListSearch',
 
   // Actions
   reply: 'IconArrowBackUp',
@@ -85,6 +89,8 @@ export const iconComponentMap: Record<IconName, string> = {
   'user-x': 'IconUserX',
   'user-minus': 'IconUserMinus',
   'user-question': 'IconUserQuestion',
+  'user-search': 'IconUserSearch',
+  'message-search': 'IconMessageCircleSearch',
   party: 'IconConfetti',
   gift: 'IconGift',
   'hand-peace': 'IconHandStop',
@@ -95,6 +101,7 @@ export const iconComponentMap: Record<IconName, string> = {
   smile: 'IconMoodSmile',
   'mood-happy': 'IconMoodHappy',
   heart: 'IconHeart',
+  'heart-off': 'IconHeartOff',
   star: 'IconStar',
   'star-off': 'IconStarOff',
   eye: 'IconEye',
@@ -181,7 +188,12 @@ export const iconComponentMap: Record<IconName, string> = {
   ai: 'IconAi',
   fire: 'IconFlame',
   globe: 'IconWorld',
+  'globe-search': 'IconWorldSearch',
   plane: 'IconPlane',
+
+  // Custom SVG icons — handled separately in Icon.web/native, not via Tabler library.
+  // Entry kept here so isValidIconName() recognises the name.
+  farcaster: '__custom__',
 };
 
 /**

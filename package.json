@@ -57,6 +57,7 @@
     "react-dom": ">=19.0.0",
     "react-dropzone": ">=14.0.0",
     "react-native": ">=0.81.0",
+    "react-native-svg": ">=15.0.0",
     "react-tooltip": ">=5.0.0"
   },
   "peerDependenciesMeta": {
@@ -90,14 +91,17 @@
     "react-native": {
       "optional": true
     },
+    "react-native-svg": {
+      "optional": true
+    },
     "react-tooltip": {
       "optional": true
     }
   },
   "devDependencies": {
-    "@noble/curves": "2.0.1",
     "@gorhom/bottom-sheet": "5.2.8",
     "@lingui/core": "4.14.1",
+    "@noble/curves": "2.0.1",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@tabler/icons-react": "3.40.0",
     "@tabler/icons-react-native": "3.40.0",
@@ -116,6 +120,7 @@
     "react-dropzone": "14.4.1",
     "react-native": "0.81.5",
     "react-native-safe-area-context": "5.7.0",
+    "react-native-svg": "15.12.1",
     "react-tooltip": "5.30.0",
     "tsup": "8.5.1",
     "typescript": "5.9.3",
