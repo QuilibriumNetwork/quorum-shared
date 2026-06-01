@@ -114,6 +114,7 @@ export const iconComponentMap: Record<IconName, string> = {
   settings: 'IconSettings',
   shield: 'IconShield',
   'shield-check': 'IconShieldCheck',
+  crown: 'IconCrown',
   key: 'IconKey',
   lock: 'IconLock',
   unlock: 'IconLockOpen',

@@ -106,6 +106,7 @@ export type IconName =
   | 'settings'
   | 'shield'
   | 'shield-check'
+  | 'crown'
   | 'lock'
   | 'unlock'
   | 'login'
