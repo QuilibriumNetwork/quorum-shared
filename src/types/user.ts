@@ -85,6 +85,7 @@ export type UserConfig = {
     [spaceId: string]: string[];
   };
   showMutedChannels?: boolean;
+  hideMutedSpacesFromSidebar?: boolean;
   favoriteDMs?: string[];
   mutedConversations?: string[];
   spaceTagId?: string;
