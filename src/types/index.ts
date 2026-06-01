@@ -93,3 +93,10 @@ export type {
 // Typing types (ephemeral typing-indicator protocol)
 export type { TypingMessageType, TypingMessage, TypingScope } from './typing';
 export { scopeKey, scopeFromMessage } from './typing';
+
+// Directory types (public space discovery)
+export type {
+  SpaceCategory,
+  DirectoryEntry,
+  DirectoryResponse,
+} from './directory';
