@@ -55,6 +55,7 @@ export const iconComponentMap: Record<IconName, string> = {
   'external-link': 'IconExternalLink',
   filter: 'IconFilter',
   sort: 'IconArrowsSort',
+  'layout-grid': 'IconLayoutGrid',
   'layout-grid-add': 'IconLayoutGridAdd',
   'grid-dots': 'IconGridDots',
   'list-search': 'IconListSearch',

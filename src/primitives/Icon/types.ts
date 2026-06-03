@@ -45,6 +45,7 @@ export type IconName =
   | 'external-link'
   | 'filter'
   | 'sort'
+  | 'layout-grid'
   | 'layout-grid-add'
   | 'grid-dots'
   | 'list-search'
