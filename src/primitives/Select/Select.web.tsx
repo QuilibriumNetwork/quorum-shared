@@ -17,6 +17,7 @@ const Select: React.FC<WebSelectProps> = ({
   style,
   size = 'medium',
   variant = 'filled',
+  borderedDropdown = false,
   fullWidth = false,
   width,
   dropdownPlacement = 'auto',
@@ -374,7 +375,7 @@ const Select: React.FC<WebSelectProps> = ({
           <Portal>
             <div
               ref={dropdownRef}
-              className={`quorum-select__dropdown quorum-select__dropdown--fixed${dropdownClassName ? ` ${dropdownClassName}` : ''}`}
+              className={`quorum-select__dropdown quorum-select__dropdown--fixed${borderedDropdown ? ' quorum-select__dropdown--bordered' : ''}${dropdownClassName ? ` ${dropdownClassName}` : ''}`}
               role="listbox"
               style={dropdownStyle}
               aria-label={placeholder}

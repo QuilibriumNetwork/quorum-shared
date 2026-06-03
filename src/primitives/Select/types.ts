@@ -1,11 +1,15 @@
 export interface SelectOption {
   value: string;
   label: string;
-  icon?: string; // Temporary: emoji or Unicode character, will be FontAwesome icon name later
-  avatar?: string; // URL for user avatars (for conversation dropdowns)
-  displayName?: string; // Display name for user initials fallback (when avatar is invalid)
-  userAddress?: string; // User address for deterministic color generation in initials
-  subtitle?: string; // Secondary text (like user addresses)
+  /** Emoji or Unicode for now; will become an icon name later. */
+  icon?: string;
+  /** URL; falls back to initials when invalid via `isAvatarValid`. */
+  avatar?: string;
+  /** Used for initials fallback when avatar is missing/invalid. */
+  displayName?: string;
+  /** Drives deterministic color generation for the initials fallback. */
+  userAddress?: string;
+  subtitle?: string;
   disabled?: boolean;
 }
 
@@ -15,10 +19,12 @@ export interface SelectOptionGroup {
 }
 
 export interface BaseSelectProps {
-  value?: string | string[]; // Support both single and multiple values
-  options?: SelectOption[]; // Simple options (alternative to groups)
-  groups?: SelectOptionGroup[]; // Grouped options (alternative to options)
-  onChange?: (value: string | string[]) => void; // Handle both single and multiple values
+  /** Single string in single-select, string[] in multiple mode. */
+  value?: string | string[];
+  /** Use either `options` or `groups`, not both. */
+  options?: SelectOption[];
+  groups?: SelectOptionGroup[];
+  onChange?: (value: string | string[]) => void;
   placeholder?: string;
   disabled?: boolean;
   error?: boolean;
@@ -26,44 +32,50 @@ export interface BaseSelectProps {
   className?: string;
   style?: React.CSSProperties;
   size?: 'small' | 'medium' | 'large';
+  /** Trigger style. Dropdown border is controlled separately by `borderedDropdown`. */
   variant?: 'filled' | 'bordered';
+  /** When true, the dropdown panel gets a visible border. */
+  borderedDropdown?: boolean;
   fullWidth?: boolean;
-  width?: string | number; // Custom width (CSS value for web, number for RN)
+  /** CSS value on web, number on native. */
+  width?: string | number;
 
-  // Avatar rendering customization (injected by consuming app)
   /** Render a custom avatar for an option. Receives the option and a size hint. */
   renderAvatar?: (option: SelectOption, size: number) => React.ReactNode;
-  /** Check if an avatar URL is valid/usable (e.g., not a placeholder). Defaults to truthy check on avatar. */
+  /** Defaults to a truthy check on `option.avatar`. */
   isAvatarValid?: (avatarUrl: string) => boolean;
 
-  // Multiselect specific props
-  multiple?: boolean; // Enable multiselect mode
+  multiple?: boolean;
+  /** Custom rendering for the selected chip(s) in multiple mode. */
   renderSelectedValue?: (
     selected: string[],
     options: SelectOption[]
-  ) => React.ReactNode; // Custom display for selected values
-  selectAllLabel?: string; // Label for "Select All" option (default: "Select All")
-  clearAllLabel?: string; // Label for "Clear All" option (default: "Clear All")
-  maxHeight?: string | number; // Maximum height for dropdown
-  showSelectAllOption?: boolean; // Show select all/clear all options (default: true when multiple)
-  maxDisplayedChips?: number; // Maximum number of chips to display before showing count (default: 3)
+  ) => React.ReactNode;
+  selectAllLabel?: string;
+  clearAllLabel?: string;
+  maxHeight?: string | number;
+  /** Defaults to true when `multiple`. */
+  showSelectAllOption?: boolean;
+  /** Selected chips beyond this count collapse into a "+N" badge. */
+  maxDisplayedChips?: number;
 
-  // Compact mode props
-  compactMode?: boolean; // Show only icon button, hide selected values
-  compactIcon?: string; // Icon to display in compact mode (default: 'filter')
-  showSelectionCount?: boolean; // Show badge with selection count in compact mode (default: false)
+  /** Hides the selected value and shows only the icon button. */
+  compactMode?: boolean;
+  /** Defaults to 'filter'. */
+  compactIcon?: string;
+  /** Compact-mode badge with the selection count. */
+  showSelectionCount?: boolean;
 }
 
 export interface WebSelectProps extends BaseSelectProps {
-  // Web-specific props
   name?: string;
   id?: string;
   autoFocus?: boolean;
-  dropdownPlacement?: 'top' | 'bottom' | 'auto'; // Dropdown positioning
-  dropdownClassName?: string; // Extra CSS class(es) for the portal dropdown
+  dropdownPlacement?: 'top' | 'bottom' | 'auto';
+  /** Extra class(es) applied to the portaled dropdown panel. */
+  dropdownClassName?: string;
 }
 
 export interface NativeSelectProps extends BaseSelectProps {
-  // Native-specific props
   testID?: string;
 }
