@@ -318,11 +318,22 @@ export function abiEncodeSignedKeyRequestMetadata(input: {
   const heads = concat(
     toUint256(input.requestFid),
     addressTo32(input.requestSigner),
-    toUint256(headSize), // offset to signature data
+    toUint256(headSize), // offset to signature data (relative to the tuple start)
     toUint256(input.deadline),
   );
 
-  return concat(heads, sigTail);
+  const tuple = concat(heads, sigTail);
+
+  // `SignedKeyRequestMetadata` carries a dynamic `bytes signature` member, so the
+  // struct itself is a *dynamic* type. The standard Solidity encoding consumed by
+  // `abi.decode(metadata, (SignedKeyRequestMetadata))` — both the on-chain
+  // SignedKeyRequestValidator and the Snapchain/hypersnap KEY_ADD validator — is
+  // `abi.encode((tuple))`, which prepends a 32-byte offset word pointing at the
+  // start of the tuple data. Without this leading word the decoder reads
+  // `requestFid` as the offset and overruns, rejecting the metadata — which made
+  // every gasless KEY_ADD fail validation at merge time (the gateway 200s, but the
+  // signer never registers), forcing casts onto the legacy path.
+  return concat(toUint256(32), tuple);
 }
 
 // ---------------------------------------------------------------------------
