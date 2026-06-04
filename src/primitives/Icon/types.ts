@@ -45,6 +45,7 @@ export type IconName =
   | 'external-link'
   | 'filter'
   | 'sort'
+  | 'layout-grid'
   | 'layout-grid-add'
   | 'grid-dots'
   | 'list-search'
@@ -75,6 +76,7 @@ export type IconName =
   | 'messages'
   | 'user'
   | 'users'
+  | 'users-group'
   | 'user-plus'
   | 'user-x'
   | 'user-minus'
@@ -181,6 +183,7 @@ export type IconName =
   | 'fire'
   | 'globe'
   | 'globe-search'
+  | 'compass'
   | 'plane'
 
   // Custom SVG icons

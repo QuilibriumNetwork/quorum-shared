@@ -55,6 +55,7 @@ export const iconComponentMap: Record<IconName, string> = {
   'external-link': 'IconExternalLink',
   filter: 'IconFilter',
   sort: 'IconArrowsSort',
+  'layout-grid': 'IconLayoutGrid',
   'layout-grid-add': 'IconLayoutGridAdd',
   'grid-dots': 'IconGridDots',
   'list-search': 'IconListSearch',
@@ -85,6 +86,7 @@ export const iconComponentMap: Record<IconName, string> = {
   messages: 'IconMessages',
   user: 'IconUser',
   users: 'IconUsers',
+  'users-group': 'IconUsersGroup',
   'user-plus': 'IconUserPlus',
   'user-x': 'IconUserX',
   'user-minus': 'IconUserMinus',
@@ -190,6 +192,7 @@ export const iconComponentMap: Record<IconName, string> = {
   fire: 'IconFlame',
   globe: 'IconWorld',
   'globe-search': 'IconWorldSearch',
+  compass: 'IconCompass',
   plane: 'IconPlane',
 
   // Custom SVG icons — handled separately in Icon.web/native, not via Tabler library.

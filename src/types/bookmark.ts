@@ -14,6 +14,7 @@ export type Bookmark = {
   cachedPreview: {
     senderAddress: string;
     senderName: string;
+    senderIcon?: string;
     textSnippet: string;
     messageDate: number;
     sourceName: string;
