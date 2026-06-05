@@ -15,6 +15,7 @@ export type Bookmark = {
     senderAddress: string;
     senderName: string;
     senderIcon?: string;
+    threadName?: string;
     textSnippet: string;
     messageDate: number;
     sourceName: string;
