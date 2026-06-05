@@ -169,6 +169,7 @@ export type IconName =
   | 'tag'
 
   // Miscellaneous
+  | 'wallet'
   | 'dollar-sign'
   | 'question-circle'
   | 'question-mark'

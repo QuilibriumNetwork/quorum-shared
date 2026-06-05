@@ -178,6 +178,7 @@ export const iconComponentMap: Record<IconName, string> = {
   tag: 'IconTag',
 
   // Miscellaneous
+  wallet: 'IconWallet',
   'dollar-sign': 'IconCurrencyDollar',
   'question-circle': 'IconHelpCircle',
   'question-mark': 'IconQuestionMark',
