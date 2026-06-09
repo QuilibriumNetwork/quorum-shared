@@ -1,3 +1,4 @@
+
 /**
  * Message-related types for Quorum
  */
@@ -27,6 +28,18 @@ export type UpdateProfileMessage = {
   userIcon: string;
   bio?: string;
   spaceTag?: BroadcastSpaceTag;
+};
+
+// DM equivalent of UpdateProfileMessage. Intercepted before persistence
+// (never renders as a chat post) and upserts the DM conversation row.
+// Empty/absent fields mean "no change"; explicit empty-string bio clears,
+// matching space update-profile semantics.
+export type DMUpdateProfileMessage = {
+  senderId: string;
+  type: 'dm-update-profile';
+  displayName?: string;
+  userIcon?: string;
+  bio?: string;
 };
 
 export type RemoveMessage = {

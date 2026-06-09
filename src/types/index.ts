@@ -22,6 +22,7 @@ export type {
   MessageSendStatus,
   PostMessage,
   UpdateProfileMessage,
+  DMUpdateProfileMessage,
   RemoveMessage,
   EventMessage,
   EmbedMessage,
