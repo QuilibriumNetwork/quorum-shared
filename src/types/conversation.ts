@@ -11,6 +11,9 @@ export type Conversation = {
   address: string;
   icon: string;
   displayName: string;
+  // DM partner's bio, received via DMUpdateProfileMessage. Mirrors the
+  // space-side per-member bio. Empty string = explicitly cleared.
+  bio?: string;
   lastReadTimestamp?: number;
   isRepudiable?: boolean;
   saveEditHistory?: boolean;
