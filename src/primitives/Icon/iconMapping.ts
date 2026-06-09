@@ -59,10 +59,26 @@ export const iconComponentMap: Record<IconName, string> = {
   'layout-grid-add': 'IconLayoutGridAdd',
   'grid-dots': 'IconGridDots',
   'list-search': 'IconListSearch',
+  'arrow-up-right': 'IconArrowUpRight',
+  'arrow-down-left': 'IconArrowDownLeft',
+  'arrow-down-right': 'IconArrowDownRight',
+  'arrows-up-down': 'IconArrowsUpDown',
+  'arrows-exchange': 'IconArrowsExchange',
+  'arrow-forward-up': 'IconArrowForwardUp',
+  'circle-arrow-up': 'IconCircleArrowUp',
+  'circle-arrow-down': 'IconCircleArrowDown',
+  'circle-arrow-left': 'IconCircleArrowLeft',
+  'circle-arrow-right': 'IconCircleArrowRight',
+  'circle-plus': 'IconCirclePlus',
+  'circle-x': 'IconCircleX',
+  maximize: 'IconMaximize',
+  minimize: 'IconMinimize',
 
   // Actions
   reply: 'IconArrowBackUp',
+  undo: 'IconArrowBackUp', // alias of reply — same Tabler icon, different semantic
   link: 'IconLink',
+  'link-plus': 'IconLinkPlus',
   trash: 'IconTrash',
   edit: 'IconEdit',
   pencil: 'IconPencil',
@@ -75,16 +91,26 @@ export const iconComponentMap: Record<IconName, string> = {
   print: 'IconPrinter',
   pin: 'IconPin',
   'pin-off': 'IconPinnedOff',
+  scan: 'IconScan',
+  sparkles: 'IconSparkles',
+  'thumb-up': 'IconThumbUp',
+  'thumb-down': 'IconThumbDown',
 
   // Communication & Social
   envelope: 'IconMail',
+  'mail-opened': 'IconMailOpened',
   send: 'IconSend',
   bullhorn: 'IconSpeakerphone',
+  broadcast: 'IconBroadcast',
   message: 'IconMessage',
   'message-dots': 'IconMessageDots',
   'comment-dots': 'IconMessageDots', // Legacy alias
   messages: 'IconMessages',
+  phone: 'IconPhone',
+  'phone-off': 'IconPhoneOff',
   user: 'IconUser',
+  'user-circle': 'IconUserCircle',
+  'user-exclamation': 'IconUserExclamation',
   users: 'IconUsers',
   'users-group': 'IconUsersGroup',
   'user-plus': 'IconUserPlus',
@@ -93,6 +119,7 @@ export const iconComponentMap: Record<IconName, string> = {
   'user-question': 'IconUserQuestion',
   'user-search': 'IconUserSearch',
   'message-search': 'IconMessageCircleSearch',
+  'hand-stop': 'IconHandStop',
   party: 'IconConfetti',
   gift: 'IconGift',
   'hand-peace': 'IconHandStop',
@@ -116,6 +143,8 @@ export const iconComponentMap: Record<IconName, string> = {
   settings: 'IconSettings',
   shield: 'IconShield',
   'shield-check': 'IconShieldCheck',
+  'shield-lock': 'IconShieldLock',
+  'shield-x': 'IconShieldX',
   crown: 'IconCrown',
   key: 'IconKey',
   lock: 'IconLock',
@@ -126,8 +155,11 @@ export const iconComponentMap: Record<IconName, string> = {
   bell: 'IconBell',
   'bell-off': 'IconBellOff',
   'bell-x': 'IconBellX',
+  'face-id': 'IconFaceId',
 
   // Files & Media
+  file: 'IconFile',
+  'file-text': 'IconFileText',
   image: 'IconPhoto',
   folder: 'IconFolder',
   'folder-minus': 'IconFolderMinus',
@@ -140,6 +172,13 @@ export const iconComponentMap: Record<IconName, string> = {
   history: 'IconHistory',
   memo: 'IconNote',
   notes: 'IconNotes',
+  'player-play': 'IconPlayerPlay',
+  'player-pause': 'IconPlayerPause',
+  camera: 'IconCamera',
+  'camera-rotate': 'IconCameraRotate',
+  'video-off': 'IconVideoOff',
+  qrcode: 'IconQrcode',
+  'microphone-off': 'IconMicrophoneOff',
 
   // Devices & Hardware
   desktop: 'IconDeviceDesktop',
@@ -151,6 +190,8 @@ export const iconComponentMap: Record<IconName, string> = {
   microphone: 'IconMicrophone',
   gamepad: 'IconDeviceGamepad2',
   headset: 'IconHeadphones',
+  'wifi-off': 'IconWifiOff',
+  server: 'IconServer',
 
   // Development & Code
   code: 'IconCode',
@@ -176,10 +217,27 @@ export const iconComponentMap: Record<IconName, string> = {
 
   // Labels & Tags
   tag: 'IconTag',
+  'tag-off': 'IconTagOff',
+  flag: 'IconFlag',
+  ticket: 'IconTicket',
+  trophy: 'IconTrophy',
+  stack: 'IconStack2',
+
+  // Charts
+  'chart-bar': 'IconChartBar',
 
   // Miscellaneous
   wallet: 'IconWallet',
+  cash: 'IconCash',
+  'credit-card': 'IconCreditCard',
+  'building-bank': 'IconBuildingBank',
+  'building-store': 'IconBuildingStore',
+  'map-pin': 'IconMapPin',
+  brush: 'IconBrush',
+  bolt: 'IconBolt',
+  hammer: 'IconHammer',
   'dollar-sign': 'IconCurrencyDollar',
+  'currency-bitcoin': 'IconCurrencyBitcoin',
   'question-circle': 'IconHelpCircle',
   'question-mark': 'IconQuestionMark',
   leaf: 'IconLeaf',
