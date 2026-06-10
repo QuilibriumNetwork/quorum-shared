@@ -18,10 +18,10 @@ export { isValidField } from './result';
 
 export { validateSpaceName } from './spaceName';
 export { validateSpaceDescription } from './spaceDescription';
-export { validateDisplayName } from './displayName';
+export { validateDisplayName, MAX_DISPLAY_NAME_BYTES } from './displayName';
 export { validateChannelName } from './channelName';
 export { validateChannelTopic } from './channelTopic';
 export { validateGroupName } from './groupName';
 export { validateDeviceName, DEVICE_NAME_PATTERN } from './deviceName';
-export { validateUserBio, MAX_BIO_LENGTH } from './userBio';
+export { validateUserBio, MAX_BIO_BYTES } from './userBio';
 export { validateUserNote, MAX_USER_NOTE_LENGTH } from './userNote';

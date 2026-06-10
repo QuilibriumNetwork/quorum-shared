@@ -9,7 +9,8 @@ import {
   validateDeviceName,
   validateUserBio,
   validateUserNote,
-  MAX_BIO_LENGTH,
+  MAX_BIO_BYTES,
+  MAX_DISPLAY_NAME_BYTES,
   MAX_USER_NOTE_LENGTH,
   isValidField,
 } from './index';
@@ -83,12 +84,27 @@ describe('validateDisplayName', () => {
     expect(validateDisplayName('a')).toEqual({ ok: true });
   });
 
-  it('rejects too long', () => {
-    const long = 'a'.repeat(MAX_NAME_LENGTH + 1);
+  it('rejects too long (over the byte budget)', () => {
+    const long = 'a'.repeat(MAX_DISPLAY_NAME_BYTES + 1);
     expect(validateDisplayName(long)).toEqual({
       ok: false,
       errorKey: 'displayName.tooLong',
-      errorVars: { max: MAX_NAME_LENGTH },
+    });
+  });
+
+  it('accepts a name exactly at the byte budget', () => {
+    const exact = 'a'.repeat(MAX_DISPLAY_NAME_BYTES);
+    expect(validateDisplayName(exact)).toEqual({ ok: true });
+  });
+
+  it('counts bytes, not characters: a multi-byte name shorter than the budget in chars can still be too long', () => {
+    // Each "😀" is 4 UTF-8 bytes. 9 of them = 36 bytes > 32, but only 18 UTF-16
+    // code units / 9 visible chars — a character-based check would wrongly pass.
+    const emoji = '😀'.repeat(9);
+    expect(emoji.length).toBeLessThan(MAX_DISPLAY_NAME_BYTES);
+    expect(validateDisplayName(emoji)).toEqual({
+      ok: false,
+      errorKey: 'displayName.tooLong',
     });
   });
 
@@ -265,11 +281,21 @@ describe('validateUserBio', () => {
     expect(validateUserBio('Hello world')).toEqual([]);
   });
 
-  it('rejects too long', () => {
-    const errors = validateUserBio('a'.repeat(MAX_BIO_LENGTH + 1));
-    expect(errors).toEqual([
-      { ok: false, errorKey: 'userBio.tooLong', errorVars: { max: MAX_BIO_LENGTH } },
-    ]);
+  it('rejects too long (over the byte budget)', () => {
+    const errors = validateUserBio('a'.repeat(MAX_BIO_BYTES + 1));
+    expect(errors).toEqual([{ ok: false, errorKey: 'userBio.tooLong' }]);
+  });
+
+  it('accepts a bio exactly at the byte budget', () => {
+    expect(validateUserBio('a'.repeat(MAX_BIO_BYTES))).toEqual([]);
+  });
+
+  it('counts bytes, not characters: a multi-byte bio shorter than the budget in chars can still be too long', () => {
+    // Each "😀" is 4 UTF-8 bytes. 65 of them = 260 bytes > 256, but only 130
+    // UTF-16 code units — a character-based check would wrongly pass.
+    const emoji = '😀'.repeat(65);
+    expect(emoji.length).toBeLessThan(MAX_BIO_BYTES);
+    expect(validateUserBio(emoji)).toEqual([{ ok: false, errorKey: 'userBio.tooLong' }]);
   });
 
   it('rejects HTML injection', () => {
