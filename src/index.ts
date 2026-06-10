@@ -45,3 +45,6 @@ export * from './farcaster';
 
 // Validation (errorKey-pattern field validators)
 export * from './validation';
+
+// QNS (Quilibrium Name Service — minimal resolution + address derivation)
+export * from './qns';

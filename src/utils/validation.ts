@@ -269,26 +269,51 @@ export const isMentionReserved = (name: string): boolean => {
 export const isEveryoneReserved = isMentionReserved;
 
 /**
+ * Confusable dot characters that must be folded to '.' before the dot check,
+ * so a lookalike (full-width '．' U+FF0E, small '﹒' U+FE52, one-dot-leader '․'
+ * U+2024) can't smuggle a fake ".q" past validation.
+ */
+const CONFUSABLE_DOTS = /[.．﹒․]/g;
+
+/**
+ * QNS names are dotless, and the ".q" suffix is appended only at render time as
+ * a verified-name trust marker. A custom display name therefore has no
+ * legitimate reason to contain a dot — allowing one would let a user spoof the
+ * ".q" marker (e.g. "admin.q"). Normalize confusable dots + trim, then reject
+ * any remaining dot.
+ *
+ * @param name - The raw custom name to check
+ * @returns true if the normalized name contains a dot
+ */
+export const containsReservedDot = (name: string): boolean =>
+  name.replace(CONFUSABLE_DOTS, '.').trim().includes('.');
+
+/**
  * Result of reserved name check with specific type for error messaging.
+ * - 'qns-suffix': Contains a dot — reserved for verified QNS names (".q")
  * - 'mention': Conflicts with @everyone or @here mentions
  * - 'impersonation': Resembles admin/moderator/support names
  */
-export type ReservedNameType = 'mention' | 'impersonation' | null;
+export type ReservedNameType = 'mention' | 'impersonation' | 'qns-suffix' | null;
 
 /**
  * Checks if a name is reserved and returns the type of reservation.
- * Combines both mention keyword check and impersonation check.
+ * Combines the QNS dot rule, mention keyword check, and impersonation check.
+ * The dot rule is checked first so a dotted name (which can never be a valid
+ * custom name) yields the specific "qns-suffix" reason.
  *
  * @param name - The name to check
  * @returns The type of reservation or null if not reserved
  *
  * @example
+ * getReservedNameType("alice.q") // 'qns-suffix'
  * getReservedNameType("everyone") // 'mention'
  * getReservedNameType("here") // 'mention'
  * getReservedNameType("admin") // 'impersonation'
  * getReservedNameType("John") // null
  */
 export const getReservedNameType = (name: string): ReservedNameType => {
+  if (containsReservedDot(name)) return 'qns-suffix';
   if (isMentionReserved(name)) return 'mention';
   if (isImpersonationName(name)) return 'impersonation';
   return null;

@@ -116,6 +116,42 @@ describe('validateDisplayName', () => {
       errorKey: 'displayName.invalidChars',
     });
   });
+
+  it('rejects names ending in .q (reserved for verified QNS names)', () => {
+    expect(validateDisplayName('alice.q')).toEqual({
+      ok: false,
+      errorKey: 'displayName.reservedQnsSuffix',
+    });
+  });
+
+  it('rejects any dotted name (dots reserved for QNS)', () => {
+    expect(validateDisplayName('foo.bar')).toEqual({
+      ok: false,
+      errorKey: 'displayName.reservedQnsSuffix',
+    });
+  });
+
+  it('rejects lookalike/full-width dot bypasses', () => {
+    expect(validateDisplayName('alice．q')).toEqual({
+      ok: false,
+      errorKey: 'displayName.reservedQnsSuffix',
+    }); // U+FF0E fullwidth dot
+    expect(validateDisplayName('alice﹒q')).toEqual({
+      ok: false,
+      errorKey: 'displayName.reservedQnsSuffix',
+    }); // U+FE52 small full stop
+  });
+
+  it('rejects trailing-space bypass on a dotted name', () => {
+    expect(validateDisplayName('alice.q ')).toEqual({
+      ok: false,
+      errorKey: 'displayName.reservedQnsSuffix',
+    });
+  });
+
+  it('still accepts ordinary names without dots', () => {
+    expect(validateDisplayName('Alice A')).toEqual({ ok: true });
+  });
 });
 
 describe('validateChannelName', () => {

@@ -209,6 +209,19 @@ describe('Reserved Name Validation', () => {
       expect(getReservedNameType('support')).toBe('impersonation');
     });
 
+    it('should return "qns-suffix" for any dotted name (protects the .q verified marker)', () => {
+      expect(getReservedNameType('alice.q')).toBe('qns-suffix');
+      expect(getReservedNameType('foo.bar')).toBe('qns-suffix');
+      expect(getReservedNameType('alice．q')).toBe('qns-suffix'); // U+FF0E
+      expect(getReservedNameType('alice﹒q')).toBe('qns-suffix'); // U+FE52
+      expect(getReservedNameType('alice.q ')).toBe('qns-suffix'); // trailing space
+    });
+
+    it('checks the dot rule before impersonation/mention (specific error wins)', () => {
+      // "admin.q" is both dotted and impersonation-shaped; dot rule should win.
+      expect(getReservedNameType('admin.q')).toBe('qns-suffix');
+    });
+
     it('should return null for allowed names', () => {
       expect(getReservedNameType('John')).toBe(null);
       expect(getReservedNameType('sysadmin')).toBe(null);
