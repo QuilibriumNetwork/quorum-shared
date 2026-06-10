@@ -269,28 +269,29 @@ export const isMentionReserved = (name: string): boolean => {
 export const isEveryoneReserved = isMentionReserved;
 
 /**
- * Confusable dot characters that must be folded to '.' before the dot check,
+ * Confusable dot characters that must be folded to '.' before the suffix check,
  * so a lookalike (full-width '．' U+FF0E, small '﹒' U+FE52, one-dot-leader '․'
  * U+2024) can't smuggle a fake ".q" past validation.
  */
 const CONFUSABLE_DOTS = /[.．﹒․]/g;
 
 /**
- * QNS names are dotless, and the ".q" suffix is appended only at render time as
- * a verified-name trust marker. A custom display name therefore has no
- * legitimate reason to contain a dot — allowing one would let a user spoof the
- * ".q" marker (e.g. "admin.q"). Normalize confusable dots + trim, then reject
- * any remaining dot.
+ * Verified QNS names are rendered as "<name>.q" at display time, where <name>
+ * is dotless (QNS forbids dots in names). The ONLY custom string that could be
+ * mistaken for a verified handle is therefore one ending in ".q". A dot
+ * elsewhere (e.g. "jane.doe") is harmless — it can't look like a verified name —
+ * so we don't block it. Normalize confusable dots + trim, then reject only a
+ * trailing ".q".
  *
  * @param name - The raw custom name to check
- * @returns true if the normalized name contains a dot
+ * @returns true if the normalized name ends in ".q"
  */
-export const containsReservedDot = (name: string): boolean =>
-  name.replace(CONFUSABLE_DOTS, '.').trim().includes('.');
+export const hasReservedQnsSuffix = (name: string): boolean =>
+  name.replace(CONFUSABLE_DOTS, '.').trim().toLowerCase().endsWith('.q');
 
 /**
  * Result of reserved name check with specific type for error messaging.
- * - 'qns-suffix': Contains a dot — reserved for verified QNS names (".q")
+ * - 'qns-suffix': Ends in ".q" — reserved for verified QNS names
  * - 'mention': Conflicts with @everyone or @here mentions
  * - 'impersonation': Resembles admin/moderator/support names
  */
@@ -298,22 +299,23 @@ export type ReservedNameType = 'mention' | 'impersonation' | 'qns-suffix' | null
 
 /**
  * Checks if a name is reserved and returns the type of reservation.
- * Combines the QNS dot rule, mention keyword check, and impersonation check.
- * The dot rule is checked first so a dotted name (which can never be a valid
- * custom name) yields the specific "qns-suffix" reason.
+ * Combines the QNS ".q"-suffix rule, mention keyword check, and impersonation
+ * check. The suffix rule is checked first so a name ending in ".q" yields the
+ * specific "qns-suffix" reason. A dot elsewhere (e.g. "jane.doe") is allowed.
  *
  * @param name - The name to check
  * @returns The type of reservation or null if not reserved
  *
  * @example
  * getReservedNameType("alice.q") // 'qns-suffix'
+ * getReservedNameType("jane.doe") // null (mid-name dot is fine)
  * getReservedNameType("everyone") // 'mention'
  * getReservedNameType("here") // 'mention'
  * getReservedNameType("admin") // 'impersonation'
  * getReservedNameType("John") // null
  */
 export const getReservedNameType = (name: string): ReservedNameType => {
-  if (containsReservedDot(name)) return 'qns-suffix';
+  if (hasReservedQnsSuffix(name)) return 'qns-suffix';
   if (isMentionReserved(name)) return 'mention';
   if (isImpersonationName(name)) return 'impersonation';
   return null;
