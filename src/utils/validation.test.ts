@@ -209,16 +209,23 @@ describe('Reserved Name Validation', () => {
       expect(getReservedNameType('support')).toBe('impersonation');
     });
 
-    it('should return "qns-suffix" for any dotted name (protects the .q verified marker)', () => {
+    it('should return "qns-suffix" only for names ending in ".q" (protects the verified marker)', () => {
       expect(getReservedNameType('alice.q')).toBe('qns-suffix');
-      expect(getReservedNameType('foo.bar')).toBe('qns-suffix');
       expect(getReservedNameType('alice．q')).toBe('qns-suffix'); // U+FF0E
       expect(getReservedNameType('alice﹒q')).toBe('qns-suffix'); // U+FE52
       expect(getReservedNameType('alice.q ')).toBe('qns-suffix'); // trailing space
+      expect(getReservedNameType('ALICE.Q')).toBe('qns-suffix'); // case-insensitive
     });
 
-    it('checks the dot rule before impersonation/mention (specific error wins)', () => {
-      // "admin.q" is both dotted and impersonation-shaped; dot rule should win.
+    it('should allow a mid-name dot (e.g. "jane.doe") — only ".q" endings are reserved', () => {
+      expect(getReservedNameType('jane.doe')).toBe(null);
+      expect(getReservedNameType('foo.bar')).toBe(null);
+      expect(getReservedNameType('J.R.R.')).toBe(null);
+      expect(getReservedNameType('a.qb')).toBe(null); // ".q" not at the end
+    });
+
+    it('checks the .q-suffix rule before impersonation/mention (specific error wins)', () => {
+      // "admin.q" is both ".q"-suffixed and impersonation-shaped; suffix wins.
       expect(getReservedNameType('admin.q')).toBe('qns-suffix');
     });
 

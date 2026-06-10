@@ -7,8 +7,9 @@
  *   on display names at all; pre-refactor desktop only required non-empty)
  * - No mention-reserved names (everyone, here, mod, manager)
  * - No impersonation names (admin, moderator, etc., including homoglyph variants)
- * - No dots (the ".q" suffix is reserved for verified QNS names; allowing a dot
- *   in a custom name would let it spoof the verified-name marker)
+ * - No ".q" suffix (reserved for verified QNS names; a name ending in ".q"
+ *   would spoof the verified-name marker — a mid-name dot like "jane.doe" is
+ *   fine since it can't look like a verified handle)
  * - No dangerous HTML patterns (XSS defense-in-depth)
  */
 

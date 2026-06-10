@@ -124,14 +124,11 @@ describe('validateDisplayName', () => {
     });
   });
 
-  it('rejects any dotted name (dots reserved for QNS)', () => {
-    expect(validateDisplayName('foo.bar')).toEqual({
-      ok: false,
-      errorKey: 'displayName.reservedQnsSuffix',
-    });
+  it('allows a mid-name dot (only ".q" endings are reserved)', () => {
+    expect(validateDisplayName('jane.doe')).toEqual({ ok: true });
   });
 
-  it('rejects lookalike/full-width dot bypasses', () => {
+  it('rejects lookalike/full-width dot bypasses on the .q suffix', () => {
     expect(validateDisplayName('alice．q')).toEqual({
       ok: false,
       errorKey: 'displayName.reservedQnsSuffix',
@@ -142,7 +139,7 @@ describe('validateDisplayName', () => {
     }); // U+FE52 small full stop
   });
 
-  it('rejects trailing-space bypass on a dotted name', () => {
+  it('rejects trailing-space bypass on a .q suffix', () => {
     expect(validateDisplayName('alice.q ')).toEqual({
       ok: false,
       errorKey: 'displayName.reservedQnsSuffix',
