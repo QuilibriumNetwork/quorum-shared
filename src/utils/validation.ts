@@ -67,6 +67,21 @@ export const MAX_MESSAGE_LENGTH = 2500;
 /** Maximum number of mentions per message */
 export const MAX_MENTIONS = 50;
 
+/**
+ * UTF-8 byte length of a string.
+ *
+ * Some limits are dictated by external systems that count bytes, not
+ * JS string `.length` (UTF-16 code units). Farcaster's USER_DATA fields are
+ * the motivating case: a display name is capped at 32 bytes and a bio at 256
+ * bytes (see the Farcaster protocol SPECIFICATION). Counting characters would
+ * pass values locally that the Farcaster relay then rejects on publish, since
+ * one emoji is up to 4 bytes and an accented letter like "é" is 2 bytes.
+ *
+ * Use this for any field whose true constraint is a byte budget.
+ */
+export const byteLength = (value: string): number =>
+  new TextEncoder().encode(value).length;
+
 /** Validation result */
 export interface ValidationResult {
   valid: boolean;
