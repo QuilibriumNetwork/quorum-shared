@@ -28,6 +28,8 @@ export const Input: React.FC<InputNativeProps> = ({
   labelType = 'static',
   required = false,
   helperText,
+  leftIcon,
+  rightIcon,
 }) => {
   const theme = useTheme();
   const colors = theme.colors;
@@ -157,9 +159,23 @@ export const Input: React.FC<InputNativeProps> = ({
       )}
 
       {/* Input container for floating label */}
-      <View style={showFloatingLabel ? styles.floatingContainer : undefined}>
+      <View
+        style={[
+          (showFloatingLabel || leftIcon || rightIcon) && styles.floatingContainer,
+        ]}
+      >
+        {leftIcon && (
+          <View style={[styles.icon, styles.iconLeft]} pointerEvents="box-none">
+            {leftIcon}
+          </View>
+        )}
+
         <TextInput
-          style={inputStyle}
+          style={[
+            inputStyle,
+            !!leftIcon && styles.inputWithLeftIcon,
+            !!rightIcon && styles.inputWithRightIcon,
+          ]}
           value={value}
           placeholder={
             showFloatingLabel
@@ -182,6 +198,12 @@ export const Input: React.FC<InputNativeProps> = ({
           testID={testID}
           accessibilityLabel={accessibilityLabel || label}
         />
+
+        {rightIcon && (
+          <View style={[styles.icon, styles.iconRight]} pointerEvents="box-none">
+            {rightIcon}
+          </View>
+        )}
 
         {/* Floating Label - only show when active (focused or has value) */}
         {showFloatingLabel && (isFocused || hasValue) && (
@@ -245,6 +267,27 @@ const styles = StyleSheet.create({
   inputWithFloatingLabel: {
     // Keep same padding as normal input
     // Floating label positions itself over the border
+  },
+  inputWithLeftIcon: {
+    paddingLeft: 40,
+  },
+  inputWithRightIcon: {
+    paddingRight: 40,
+  },
+  icon: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    height: 42,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 40,
+  },
+  iconLeft: {
+    left: 0,
+  },
+  iconRight: {
+    right: 0,
   },
   inputMinimal: {
     borderRadius: 0,
