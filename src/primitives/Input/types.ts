@@ -45,6 +45,18 @@ export interface InputProps {
   helperText?: string;
   /** Show a clear (×) control when there is input (web only) */
   clearable?: boolean;
+  /**
+   * Icon/element rendered inside the field, before the text (left side).
+   * The consumer passes its own node (e.g. an <Icon /> or a clickable button).
+   * The input is automatically padded to make room.
+   */
+  leftIcon?: React.ReactNode;
+  /**
+   * Icon/element rendered inside the field, after the text (right side).
+   * Useful for reveal toggles, status indicators, or actions.
+   * The input is automatically padded to make room.
+   */
+  rightIcon?: React.ReactNode;
 }
 
 // React Native specific props

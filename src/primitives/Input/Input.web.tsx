@@ -25,6 +25,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
   required = false,
   helperText,
   clearable = false,
+  leftIcon,
+  rightIcon,
 }, ref) => {
   const [isFocused, setIsFocused] = useState(false);
   const inputId = useId();
@@ -80,9 +82,15 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
         className={clsx(
           'input-wrapper',
           className,
-          clearable && hasValue && !disabled && 'input-has-clear'
+          clearable && hasValue && !disabled && 'input-has-clear',
+          !!leftIcon && 'input-has-left-icon',
+          !!rightIcon && 'input-has-right-icon'
         )}
       >
+        {leftIcon && (
+          <span className="input-icon input-icon--left">{leftIcon}</span>
+        )}
+
         <input
           ref={ref}
           id={inputId}
@@ -117,6 +125,10 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
           >
             ×
           </button>
+        )}
+
+        {rightIcon && (
+          <span className="input-icon input-icon--right">{rightIcon}</span>
         )}
 
         {/* Floating Label - only show when active (focused or has value) */}
