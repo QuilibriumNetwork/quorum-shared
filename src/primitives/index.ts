@@ -16,6 +16,16 @@ export { ColorSwatch } from './ColorSwatch';
 export { RadioGroup } from './RadioGroup';
 export { Tooltip } from './Tooltip';
 export { Icon, iconNames, isValidIconName } from './Icon';
+// Icon-picker vocabulary (curated icon list + named colors + filled-variant set + helpers)
+export {
+  ICON_OPTIONS,
+  ICON_COLORS,
+  FOLDER_COLORS,
+  FILLED_ICONS,
+  getIconColorHex,
+  getFolderColorHex,
+  getIconColorClass,
+} from './Icon';
 export { Text, Paragraph, Label, Caption, Title, InlineText } from './Text';
 export { FileUpload } from './FileUpload';
 export { default as Callout } from './Callout';
@@ -69,6 +79,7 @@ export type {
   IconSize,
   IconVariant,
 } from './Icon';
+export type { IconColor, IconOption, ColorOption } from './Icon';
 export type { TextProps, WebTextProps, NativeTextProps } from './Text';
 export type { FileUploadProps, FileUploadFile } from './FileUpload';
 export type { CalloutProps, CalloutVariant, CalloutSize, CalloutLayout } from './Callout';
