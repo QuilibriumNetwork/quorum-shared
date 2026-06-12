@@ -111,119 +111,127 @@ export const FILLED_ICONS: Set<IconName> = new Set([
   'sparkles', // IconSparklesFilled
 ]);
 
-// Curated picker icons organized by tier and category.
-// Expanded 2026-06-12: 49 -> 92. New names are all already renderable by the shared
-// Icon primitive (no mapping work); slotted into existing tiers thematically.
+// Curated picker icons grouped into tight semantic clusters — neighbors always
+// relate, so the grid reads as coherent themed blocks rather than a scattered wall.
+// Expanded 2026-06-12: 49 -> 92. All names are already renderable by the shared Icon
+// primitive (no mapping work). `tier` here just marks the cluster (display order =
+// array order); `category` feeds the accessibility label.
 export const ICON_OPTIONS: IconOption[] = [
-  // Tier 1: Essential & Most Common (Top Row)
+  // 1 — Essentials & Spaces
   { name: 'bullhorn', tier: 1, category: 'Announcements' },
   { name: 'hashtag', tier: 1, category: 'General' },
   { name: 'home', tier: 1, category: 'Main' },
-  { name: 'users', tier: 1, category: 'Team' },
-  { name: 'user', tier: 1, category: 'Member' },
-  { name: 'message', tier: 1, category: 'Discussion' },
-  { name: 'messages', tier: 1, category: 'Chat' },
-  { name: 'star', tier: 1, category: 'Important' },
   { name: 'folder', tier: 1, category: 'Organization' },
+  { name: 'star', tier: 1, category: 'Important' },
+  { name: 'pin', tier: 1, category: 'Pinned' },
+  { name: 'bookmark', tier: 1, category: 'Resources' },
 
-  // Tier 2: Popular Categories (Second Row)
-  { name: 'briefcase', tier: 2, category: 'Business' },
-  { name: 'gamepad', tier: 2, category: 'Gaming' },
-  { name: 'image', tier: 2, category: 'Media' },
-  { name: 'camera', tier: 2, category: 'Photos' },
-  { name: 'video', tier: 2, category: 'Video' },
-  { name: 'microphone', tier: 2, category: 'Audio' },
-  { name: 'volume', tier: 2, category: 'Sound' },
-  { name: 'player-play', tier: 2, category: 'Playback' },
+  // 2 — People & Social
+  { name: 'user', tier: 2, category: 'Member' },
+  { name: 'users', tier: 2, category: 'Team' },
+  { name: 'crown', tier: 2, category: 'Owner' },
+  { name: 'heart', tier: 2, category: 'Community' },
+  { name: 'hand-peace', tier: 2, category: 'Friendly' },
   { name: 'smile', tier: 2, category: 'Fun' },
   { name: 'mood-happy', tier: 2, category: 'Mood' },
+  { name: 'party', tier: 2, category: 'Celebrations' },
+  { name: 'gift', tier: 2, category: 'Rewards' },
 
-  // Tier 3: Work & Organization
-  { name: 'book', tier: 3, category: 'Documentation' },
-  { name: 'file', tier: 3, category: 'Files' },
-  { name: 'file-code', tier: 3, category: 'Code Files' },
-  { name: 'paperclip', tier: 3, category: 'Attachments' },
-  { name: 'tools', tier: 3, category: 'Development' },
-  { name: 'hammer', tier: 3, category: 'Build' },
-  { name: 'code', tier: 3, category: 'Programming' },
-  { name: 'settings', tier: 3, category: 'Settings' },
-  { name: 'shield', tier: 3, category: 'Security' },
-  { name: 'bug', tier: 3, category: 'Issues' },
+  // 3 — Communication
+  { name: 'message', tier: 3, category: 'Discussion' },
+  { name: 'messages', tier: 3, category: 'Chat' },
+  { name: 'envelope', tier: 3, category: 'Mail' },
+  { name: 'phone', tier: 3, category: 'Calls' },
+  { name: 'broadcast', tier: 3, category: 'Live' },
+  { name: 'bell', tier: 3, category: 'Notifications' },
+  { name: 'at', tier: 3, category: 'Mentions' },
 
-  // Tier 4: Communication & Events
-  { name: 'bell', tier: 4, category: 'Notifications' },
-  { name: 'envelope', tier: 4, category: 'Mail' },
-  { name: 'phone', tier: 4, category: 'Calls' },
-  { name: 'broadcast', tier: 4, category: 'Live' },
-  { name: 'calendar-alt', tier: 4, category: 'Events' },
-  { name: 'gift', tier: 4, category: 'Rewards' },
-  { name: 'party', tier: 4, category: 'Celebrations' },
-  { name: 'heart', tier: 4, category: 'Community' },
-  { name: 'hand-peace', tier: 4, category: 'Friendly' },
+  // 4 — Media
+  { name: 'image', tier: 4, category: 'Media' },
+  { name: 'camera', tier: 4, category: 'Photos' },
+  { name: 'video', tier: 4, category: 'Video' },
+  { name: 'microphone', tier: 4, category: 'Audio' },
+  { name: 'volume', tier: 4, category: 'Sound' },
+  { name: 'player-play', tier: 4, category: 'Playback' },
+  { name: 'palette', tier: 4, category: 'Art' },
+  { name: 'brush', tier: 4, category: 'Design' },
 
-  // Tier 5: Support & Information
-  { name: 'info-circle', tier: 5, category: 'Information' },
-  { name: 'support', tier: 5, category: 'Support' },
-  { name: 'question-circle', tier: 5, category: 'FAQ' },
-  { name: 'check-circle', tier: 5, category: 'Success' },
-  { name: 'warning', tier: 5, category: 'Alerts' },
-  { name: 'search', tier: 5, category: 'Research' },
-  { name: 'bookmark', tier: 5, category: 'Resources' },
-  { name: 'pin', tier: 5, category: 'Pinned' },
-  { name: 'flag', tier: 5, category: 'Flagged' },
-  { name: 'badge', tier: 5, category: 'Badges' },
-  { name: 'ticket', tier: 5, category: 'Tickets' },
+  // 5 — Work, Files & Dev
+  { name: 'briefcase', tier: 5, category: 'Business' },
+  { name: 'book', tier: 5, category: 'Documentation' },
+  { name: 'file', tier: 5, category: 'Files' },
+  { name: 'file-code', tier: 5, category: 'Code Files' },
+  { name: 'paperclip', tier: 5, category: 'Attachments' },
+  { name: 'code', tier: 5, category: 'Programming' },
+  { name: 'tools', tier: 5, category: 'Development' },
+  { name: 'hammer', tier: 5, category: 'Build' },
+  { name: 'settings', tier: 5, category: 'Settings' },
+  { name: 'bug', tier: 5, category: 'Issues' },
+  { name: 'flask', tier: 5, category: 'Experiments' },
+  { name: 'robot', tier: 5, category: 'Sci-Fi' },
+  { name: 'ai', tier: 5, category: 'AI' },
 
-  // Tier 6: Specialized Interests
+  // 6 — Money & Commerce
   { name: 'dollar-sign', tier: 6, category: 'Finance' },
   { name: 'wallet', tier: 6, category: 'Wallet' },
   { name: 'currency-bitcoin', tier: 6, category: 'Crypto' },
   { name: 'building-bank', tier: 6, category: 'Banking' },
   { name: 'building-store', tier: 6, category: 'Marketplace' },
-  { name: 'utensils', tier: 6, category: 'Food' },
-  { name: 'paw', tier: 6, category: 'Animals' },
-  { name: 'leaf', tier: 6, category: 'Nature' },
-  { name: 'seedling', tier: 6, category: 'Nature' },
-  { name: 'tree', tier: 6, category: 'Outdoors' },
-  { name: 'headset', tier: 6, category: 'Gaming Communication' },
-  { name: 'chart-line', tier: 6, category: 'Analytics' },
-  { name: 'trophy', tier: 6, category: 'Achievements' },
+  { name: 'ticket', tier: 6, category: 'Tickets' },
 
-  // Tier 7: Network, Travel & Privacy
-  { name: 'globe', tier: 7, category: 'Network' },
-  { name: 'compass', tier: 7, category: 'Explore' },
-  { name: 'map-pin', tier: 7, category: 'Location' },
-  { name: 'plane', tier: 7, category: 'Travel' },
-  { name: 'link', tier: 7, category: 'Links' },
-  { name: 'at', tier: 7, category: 'Mentions' },
-  { name: 'lock', tier: 7, category: 'Privacy' },
-  { name: 'shield-lock', tier: 7, category: 'Encrypted' },
-  { name: 'key', tier: 7, category: 'Keys' },
-  { name: 'eye', tier: 7, category: 'Visibility' },
+  // 7 — Nature & Sky
+  { name: 'sun', tier: 7, category: 'Day' },
+  { name: 'moon', tier: 7, category: 'Night' },
+  { name: 'leaf', tier: 7, category: 'Nature' },
+  { name: 'seedling', tier: 7, category: 'Nature' },
+  { name: 'tree', tier: 7, category: 'Outdoors' },
+  { name: 'paw', tier: 7, category: 'Animals' },
+  { name: 'utensils', tier: 7, category: 'Food' },
+  { name: 'fire', tier: 7, category: 'Hot' },
 
-  // Tier 8: Roles, Devices & Actions
-  { name: 'crown', tier: 8, category: 'Owner' },
-  { name: 'desktop', tier: 8, category: 'Devices' },
-  { name: 'device-floppy', tier: 8, category: 'Saved' },
-  { name: 'stack', tier: 8, category: 'Stacks' },
+  // 8 — Gaming, Combat & Achievements
+  { name: 'gamepad', tier: 8, category: 'Gaming' },
+  { name: 'sword', tier: 8, category: 'Combat' },
+  { name: 'headset', tier: 8, category: 'Gaming Communication' },
   { name: 'target', tier: 8, category: 'Goals' },
+  { name: 'trophy', tier: 8, category: 'Achievements' },
+  { name: 'badge', tier: 8, category: 'Badges' },
   { name: 'certificate', tier: 8, category: 'Official' },
-  { name: 'bolt', tier: 8, category: 'Power' },
 
-  // Tier 9: Creative, Symbols & Special Purpose
-  { name: 'palette', tier: 9, category: 'Art' },
-  { name: 'brush', tier: 9, category: 'Design' },
-  { name: 'sparkles', tier: 9, category: 'Highlights' },
-  { name: 'flask', tier: 9, category: 'Experiments' },
-  { name: 'robot', tier: 9, category: 'Sci-Fi' },
-  { name: 'ai', tier: 9, category: 'AI' },
-  { name: 'fire', tier: 9, category: 'Hot' },
-  { name: 'sword', tier: 9, category: 'Combat' },
-  { name: 'sun', tier: 9, category: 'Day' },
-  { name: 'moon', tier: 9, category: 'Night' },
-  { name: 'clock', tier: 9, category: 'Time' },
-  { name: 'circle', tier: 9, category: 'Shapes' },
-  { name: 'square', tier: 9, category: 'Shapes' },
+  // 9 — Travel & Places
+  { name: 'globe', tier: 9, category: 'Network' },
+  { name: 'compass', tier: 9, category: 'Explore' },
+  { name: 'map-pin', tier: 9, category: 'Location' },
+  { name: 'plane', tier: 9, category: 'Travel' },
+  { name: 'link', tier: 9, category: 'Links' },
+
+  // 10 — Security & Privacy
+  { name: 'shield', tier: 10, category: 'Security' },
+  { name: 'shield-lock', tier: 10, category: 'Encrypted' },
+  { name: 'lock', tier: 10, category: 'Privacy' },
+  { name: 'key', tier: 10, category: 'Keys' },
+  { name: 'eye', tier: 10, category: 'Visibility' },
+
+  // 11 — Status & Info
+  { name: 'info-circle', tier: 11, category: 'Information' },
+  { name: 'question-circle', tier: 11, category: 'FAQ' },
+  { name: 'check-circle', tier: 11, category: 'Success' },
+  { name: 'warning', tier: 11, category: 'Alerts' },
+  { name: 'support', tier: 11, category: 'Support' },
+  { name: 'search', tier: 11, category: 'Research' },
+  { name: 'flag', tier: 11, category: 'Flagged' },
+  { name: 'chart-line', tier: 11, category: 'Analytics' },
+
+  // 12 — Time, Devices & Symbols
+  { name: 'calendar-alt', tier: 12, category: 'Events' },
+  { name: 'clock', tier: 12, category: 'Time' },
+  { name: 'desktop', tier: 12, category: 'Devices' },
+  { name: 'device-floppy', tier: 12, category: 'Saved' },
+  { name: 'stack', tier: 12, category: 'Stacks' },
+  { name: 'bolt', tier: 12, category: 'Power' },
+  { name: 'sparkles', tier: 12, category: 'Highlights' },
+  { name: 'circle', tier: 12, category: 'Shapes' },
+  { name: 'square', tier: 12, category: 'Shapes' },
 ];
 
 // Icon colors in rainbow order: app-default, blue, purple, fuchsia, green, orange, yellow, red
