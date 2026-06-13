@@ -57,6 +57,11 @@ export type UserConfig = {
   profile_image?: string;
   bio?: string;
   isProfilePublic?: boolean;
+  // QNS username set as primary (e.g. "alice" for @alice). camelCase to match
+  // the other app-level config fields; the wire format uses primary_username on
+  // PublicProfile. Synced cross-device so a user's primary username reaches
+  // their other devices.
+  primaryUsername?: string;
   farcasterLink?: FarcasterLink;
   spaceKeys?: {
     spaceId: string;
