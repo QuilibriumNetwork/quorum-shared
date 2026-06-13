@@ -21,10 +21,16 @@ export type PostMessage = {
   }>;
 };
 
+// Space profile-update broadcast. Per-field semantics mirror bio: an omitted
+// field means "no change", an explicit empty string is a deliberate clear.
+// `displayName` here is the sender's per-space name (an optional override of
+// their global account name) — clearing it falls back to the global / QNS name.
+// It is intentionally optional and NOT the global display name (that lives on
+// UserProfile / PublicProfile and stays required).
 export type UpdateProfileMessage = {
   senderId: string;
   type: 'update-profile';
-  displayName: string;
+  displayName?: string;
   userIcon: string;
   bio?: string;
   spaceTag?: BroadcastSpaceTag;
