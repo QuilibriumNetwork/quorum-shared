@@ -5,7 +5,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { extractMentionsFromText } from './mentions';
+import { extractMentionsFromText, isMentionedWithSettings } from './mentions';
+import type { Message, Role, Space } from '../types';
 
 describe('Enhanced mentionUtils', () => {
   describe('extractMentionsFromText - User Mentions', () => {
@@ -231,5 +232,59 @@ describe('Enhanced mentionUtils', () => {
       }
       expect(result.memberIds).toEqual(expectedIds);
     });
+  });
+});
+
+describe('isMentionedWithSettings - @everyone permission enforcement', () => {
+  const SENDER = 'addr-sender';
+  const ME = 'addr-me';
+  const ALL = ['mention-you', 'mention-everyone', 'mention-roles'];
+
+  const everyoneMsg = (): Message =>
+    ({
+      content: { type: 'post', senderId: SENDER },
+      mentions: { memberIds: [], roleIds: [], channelIds: [], everyone: true },
+    } as unknown as Message);
+
+  const spaceWith = (roles: Role[]): Space => ({ roles } as unknown as Space);
+  const everyoneRole = (members: string[]): Role =>
+    ({ roleId: 'r1', members, permissions: ['mention:everyone'] } as unknown as Role);
+
+  it('honors @everyone when the sender holds a mention:everyone role', () => {
+    const space = spaceWith([everyoneRole([SENDER])]);
+    expect(
+      isMentionedWithSettings(everyoneMsg(), { userAddress: ME, enabledTypes: ALL, space })
+    ).toBe(true);
+  });
+
+  it('ignores @everyone when the sender has no mention:everyone role', () => {
+    const space = spaceWith([everyoneRole(['someone-else'])]);
+    expect(
+      isMentionedWithSettings(everyoneMsg(), { userAddress: ME, enabledTypes: ALL, space })
+    ).toBe(false);
+  });
+
+  it('ignores @everyone when no space is provided (cannot verify sender)', () => {
+    expect(
+      isMentionedWithSettings(everyoneMsg(), { userAddress: ME, enabledTypes: ALL })
+    ).toBe(false);
+  });
+
+  it('does NOT honor @everyone for the owner without a role (no owner bypass)', () => {
+    // Sender holds no role; ownership is unverifiable on receipt, so @everyone is ignored.
+    const space = spaceWith([everyoneRole(['someone-else'])]);
+    expect(
+      isMentionedWithSettings(everyoneMsg(), { userAddress: ME, enabledTypes: ALL, space })
+    ).toBe(false);
+  });
+
+  it('still flags a direct @you mention regardless of @everyone permission', () => {
+    const msg = {
+      content: { type: 'post', senderId: SENDER },
+      mentions: { memberIds: [ME], roleIds: [], channelIds: [], everyone: false },
+    } as unknown as Message;
+    expect(
+      isMentionedWithSettings(msg, { userAddress: ME, enabledTypes: ALL })
+    ).toBe(true);
   });
 });

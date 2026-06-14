@@ -6,8 +6,9 @@
  * - quorum-desktop mentionUtils.ts (isMentioned, extractMentionsFromText, etc.)
  */
 
-import type { Message, Mentions } from '../types';
+import type { Message, Mentions, Space } from '../types';
 import { createIPFSCIDRegex } from './validation';
+import { hasPermission } from './permissions';
 
 // ============================================
 // MENTION PATTERNS & PARSING (from shared)
@@ -285,9 +286,12 @@ export function isMentionedWithSettings(
     userAddress: string;
     enabledTypes: string[];
     userRoles?: string[];
+    // The space the message belongs to, used to verify the SENDER was allowed
+    // to use @everyone. Without it, an unverified @everyone is ignored.
+    space?: Space;
   }
 ): boolean {
-  const { userAddress, enabledTypes, userRoles = [] } = options;
+  const { userAddress, enabledTypes, userRoles = [], space } = options;
   const mentions = message.mentions;
 
   if (!mentions) return false;
@@ -299,9 +303,14 @@ export function isMentionedWithSettings(
     }
   }
 
-  // Check @everyone mentions
+  // Check @everyone mentions — only honor it if the SENDER actually held a role
+  // with mention:everyone. Receivers can't verify ownership, so this is role-only
+  // (no owner bypass), matching how delete/pin are enforced on receipt.
   if (enabledTypes.includes('mention-everyone')) {
-    if (mentions.everyone === true) {
+    if (
+      mentions.everyone === true &&
+      hasPermission(message.content.senderId, 'mention:everyone', space)
+    ) {
       return true;
     }
   }
