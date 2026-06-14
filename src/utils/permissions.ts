@@ -9,20 +9,18 @@ import type { Permission, Role, Space } from '../types';
  * @param userAddress - The address of the user to check
  * @param permission - The permission to check for
  * @param space - The space object containing roles
- * @param isSpaceOwner - Whether the user is the space owner (owners have all permissions)
+ * @param _isSpaceOwner - Deprecated/ignored. Ownership grants NO implicit
+ *   permissions: clients can't verify who the owner is (no ownerAddress on the
+ *   wire, by design), so owners must self-assign a role like anyone else. The
+ *   only owner-only action is kick, enforced via the owner's Ed448 key, not here.
  * @returns boolean - true if user has the permission
  */
 export function hasPermission(
   userAddress: string,
   permission: Permission,
   space: Space | undefined,
-  isSpaceOwner: boolean = false
+  _isSpaceOwner: boolean = false
 ): boolean {
-  // Space owners always have all permissions
-  if (isSpaceOwner) {
-    return true;
-  }
-
   // If no space data available, deny permission
   if (!space || !space.roles) {
     return false;
@@ -40,21 +38,15 @@ export function hasPermission(
  * Get all permissions a user has in a space
  * @param userAddress - The address of the user
  * @param space - The space object containing roles
- * @param isSpaceOwner - Whether the user is the space owner
+ * @param _isSpaceOwner - Deprecated/ignored (see hasPermission). Ownership grants
+ *   no implicit permissions; owners must self-assign roles. Kick is separate.
  * @returns Permission[] - array of permissions the user has
  */
 export function getUserPermissions(
   userAddress: string,
   space: Space | undefined,
-  isSpaceOwner: boolean = false
+  _isSpaceOwner: boolean = false
 ): Permission[] {
-  // Space owners have all role-delegatable permissions
-  // Note: kick is NOT included here because it requires the owner's ED448 key,
-  // not a role permission - only owners can kick (protocol-level enforcement)
-  if (isSpaceOwner) {
-    return ['message:delete', 'message:pin', 'mention:everyone'];
-  }
-
   if (!space || !space.roles) {
     return [];
   }
