@@ -23,7 +23,16 @@ export type IconColor =
   | 'green'
   | 'orange'
   | 'yellow'
-  | 'red';
+  | 'red'
+  // Expanded 2026-06-14 (role-color palette): four extra hues so roles have
+  // enough distinct colors. Additive — existing stored values are unaffected.
+  // Both desktop and mobile render these via the `hex` field (getIconColorHex /
+  // getFolderColorHex / getRoleColorHex), so no per-token CSS is required — the
+  // `class` field below is vestigial (getIconColorClass is never called).
+  | 'teal'
+  | 'sky'
+  | 'indigo'
+  | 'pink';
 
 export interface IconOption {
   name: IconName;
@@ -234,7 +243,11 @@ export const ICON_OPTIONS: IconOption[] = [
   { name: 'square', tier: 12, category: 'Shapes' },
 ];
 
-// Icon colors in rainbow order: app-default, blue, purple, fuchsia, green, orange, yellow, red
+// Icon colors in rainbow order: app-default, blue, sky, teal, green, yellow,
+// orange, red, pink, fuchsia, purple, indigo.
+// `yellow` was #ca8a04 (a muddy mustard that reads poorly as a badge fill) —
+// corrected to #eab308 on 2026-06-14. teal/sky/indigo/pink added the same day
+// so the role-color palette has enough distinct hues (see getRoleColorHex).
 export const ICON_COLORS: ColorOption[] = [
   { value: 'default', label: 'Default', class: 'text-subtle', hex: '#9ca3af' },
   { value: 'blue', label: 'Blue', class: 'text-accent-blue', hex: '#3b82f6' },
@@ -242,11 +255,16 @@ export const ICON_COLORS: ColorOption[] = [
   { value: 'fuchsia', label: 'Fuchsia', class: 'text-accent-fuchsia', hex: '#d946ef' },
   { value: 'green', label: 'Green', class: 'text-accent-green', hex: '#22c55e' },
   { value: 'orange', label: 'Orange', class: 'text-accent-orange', hex: '#f97316' },
-  { value: 'yellow', label: 'Yellow', class: 'text-accent-yellow', hex: '#ca8a04' },
+  { value: 'yellow', label: 'Yellow', class: 'text-accent-yellow', hex: '#eab308' },
   { value: 'red', label: 'Red', class: 'text-accent-red', hex: '#ef4444' },
+  { value: 'teal', label: 'Teal', class: 'text-accent-teal', hex: '#14b8a6' },
+  { value: 'sky', label: 'Sky', class: 'text-accent-sky', hex: '#0ea5e9' },
+  { value: 'indigo', label: 'Indigo', class: 'text-accent-indigo', hex: '#6366f1' },
+  { value: 'pink', label: 'Pink', class: 'text-accent-pink', hex: '#ec4899' },
 ];
 
-// Dimmed colors for folder backgrounds — light theme (25% less saturation)
+// Dimmed colors for folder backgrounds — light theme (25% less saturation).
+// New hues (teal/sky/indigo/pink) added 2026-06-14 to mirror ICON_COLORS.
 export const FOLDER_COLORS: ColorOption[] = [
   { value: 'default', label: 'Default', class: 'text-subtle', hex: '#6b7280' },
   { value: 'blue', label: 'Blue', class: 'text-accent-blue', hex: '#5f8eeb' },
@@ -256,6 +274,10 @@ export const FOLDER_COLORS: ColorOption[] = [
   { value: 'orange', label: 'Orange', class: 'text-accent-orange', hex: '#ec814a' },
   { value: 'yellow', label: 'Yellow', class: 'text-accent-yellow', hex: '#d4a017' },
   { value: 'red', label: 'Red', class: 'text-accent-red', hex: '#e7615d' },
+  { value: 'teal', label: 'Teal', class: 'text-accent-teal', hex: '#3fa99a' },
+  { value: 'sky', label: 'Sky', class: 'text-accent-sky', hex: '#3f9fd1' },
+  { value: 'indigo', label: 'Indigo', class: 'text-accent-indigo', hex: '#7376e0' },
+  { value: 'pink', label: 'Pink', class: 'text-accent-pink', hex: '#d36493' },
 ];
 
 // Helper function to get icon color hex value

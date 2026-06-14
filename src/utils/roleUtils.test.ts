@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { toggleRolePermission, setRolePermissions } from './roleUtils';
+import {
+  toggleRolePermission,
+  setRolePermissions,
+  getRoleColorHex,
+  getDefaultRoleColor,
+  ROLE_COLORS,
+} from './roleUtils';
+import { ICON_COLORS, getIconColorHex } from '../primitives/Icon/pickerVocabulary';
 import type { Role } from '../types';
 
 const baseRole: Role = {
@@ -50,5 +57,67 @@ describe('setRolePermissions', () => {
     const snapshot = [...role.permissions];
     setRolePermissions(role, ['message:pin']);
     expect(role.permissions).toEqual(snapshot);
+  });
+});
+
+describe('ROLE_COLORS', () => {
+  it('excludes the grey default and exposes only named hues', () => {
+    expect(ROLE_COLORS.some((c) => c.value === 'default')).toBe(false);
+    expect(ROLE_COLORS.length).toBe(ICON_COLORS.length - 1);
+  });
+
+  it('every entry is a valid hex', () => {
+    for (const c of ROLE_COLORS) {
+      expect(c.hex).toMatch(/^#[0-9a-fA-F]{6}$/);
+    }
+  });
+});
+
+describe('getRoleColorHex', () => {
+  it('resolves a named palette token to its hex', () => {
+    expect(getRoleColorHex('green')).toBe(getIconColorHex('green'));
+    expect(getRoleColorHex('blue')).toBe(getIconColorHex('blue'));
+  });
+
+  it('passes through an already-valid hex (legacy mobile roles)', () => {
+    expect(getRoleColorHex('#22c55e')).toBe('#22c55e');
+    expect(getRoleColorHex('#abc')).toBe('#abc');
+  });
+
+  it('maps the legacy desktop CSS-var string to the green hex', () => {
+    expect(getRoleColorHex('rgb(var(--success))')).toBe(getIconColorHex('green'));
+  });
+
+  it('falls back for unknown / unparseable values', () => {
+    const fallback = ROLE_COLORS[0].hex;
+    expect(getRoleColorHex('not-a-color')).toBe(fallback);
+    expect(getRoleColorHex('rgb(var(--whatever))')).toBe(fallback);
+    expect(getRoleColorHex('')).toBe(fallback);
+  });
+
+  it('falls back for null / undefined without throwing', () => {
+    const fallback = ROLE_COLORS[0].hex;
+    expect(getRoleColorHex(undefined)).toBe(fallback);
+    expect(getRoleColorHex(null)).toBe(fallback);
+  });
+});
+
+describe('getDefaultRoleColor', () => {
+  it('returns a palette token', () => {
+    const token = getDefaultRoleColor('role-abc');
+    expect(ROLE_COLORS.some((c) => c.value === token)).toBe(true);
+  });
+
+  it('is deterministic for the same seed', () => {
+    expect(getDefaultRoleColor('role-abc')).toBe(getDefaultRoleColor('role-abc'));
+  });
+
+  it('handles an empty seed without throwing', () => {
+    const token = getDefaultRoleColor('');
+    expect(ROLE_COLORS.some((c) => c.value === token)).toBe(true);
+  });
+
+  it('the chosen token resolves to a valid hex via getRoleColorHex', () => {
+    expect(getRoleColorHex(getDefaultRoleColor('seed-xyz'))).toMatch(/^#[0-9a-fA-F]{6}$/);
   });
 });

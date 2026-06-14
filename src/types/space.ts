@@ -17,6 +17,14 @@ export type Role = {
   roleId: string;
   displayName: string;
   roleTag: string;
+  /**
+   * Portable color for the role's badge. Store a named palette token from the
+   * shared icon-color vocabulary (e.g. 'blue', 'green' — see `ROLE_COLORS` /
+   * `IconColor`), NOT a raw platform color and never a CSS variable. Resolve to
+   * a render hex with `getRoleColorHex()`, which also tolerates legacy values
+   * (raw hex from old mobile roles, the legacy desktop 'rgb(var(--success))').
+   * Kept as `string` for wire-compat; treat new writes as a token.
+   */
   color: string;
   members: string[];
   permissions: Permission[];
