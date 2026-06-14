@@ -47,7 +47,7 @@ export type Channel = {
   channelId: string;
   spaceId: string;
   channelName: string;
-  channelTopic: string;
+  channelTopic?: string;
   channelKey?: string;
   createdDate: number;
   modifiedDate: number;
