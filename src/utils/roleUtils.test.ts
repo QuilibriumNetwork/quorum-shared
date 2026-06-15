@@ -5,6 +5,9 @@ import {
   getRoleColorHex,
   getDefaultRoleColor,
   ROLE_COLORS,
+  findRoleConflict,
+  isRoleIdentityAvailable,
+  getUniqueRoleDefaults,
 } from './roleUtils';
 import { ICON_COLORS, getIconColorHex } from '../primitives/Icon/pickerVocabulary';
 import type { Role } from '../types';
@@ -119,5 +122,72 @@ describe('getDefaultRoleColor', () => {
 
   it('the chosen token resolves to a valid hex via getRoleColorHex', () => {
     expect(getRoleColorHex(getDefaultRoleColor('seed-xyz'))).toMatch(/^#[0-9a-fA-F]{6}$/);
+  });
+});
+
+const rolesFixture: Role[] = [
+  { ...baseRole, roleId: 'r1', displayName: 'Mod', roleTag: 'mod' },
+  { ...baseRole, roleId: 'r2', displayName: 'Admin', roleTag: 'admin' },
+];
+
+describe('findRoleConflict', () => {
+  it('returns null when tag and name are both unique', () => {
+    expect(findRoleConflict(rolesFixture, { roleTag: 'helper', displayName: 'Helper' })).toBeNull();
+  });
+
+  it('detects a duplicate tag (case-insensitive, trimmed)', () => {
+    const c = findRoleConflict(rolesFixture, { roleTag: ' MOD ' });
+    expect(c?.field).toBe('roleTag');
+    expect(c?.role.roleId).toBe('r1');
+  });
+
+  it('detects a duplicate name (case-insensitive)', () => {
+    const c = findRoleConflict(rolesFixture, { displayName: 'admin' });
+    expect(c?.field).toBe('displayName');
+    expect(c?.role.roleId).toBe('r2');
+  });
+
+  it('reports tag before name when both collide', () => {
+    expect(findRoleConflict(rolesFixture, { roleTag: 'mod', displayName: 'Admin' })?.field).toBe('roleTag');
+  });
+
+  it('excludes the role being edited (no self-conflict)', () => {
+    expect(findRoleConflict(rolesFixture, { roleTag: 'mod', displayName: 'Mod' }, 'r1')).toBeNull();
+  });
+
+  it('still flags a collision with a DIFFERENT role when editing', () => {
+    expect(findRoleConflict(rolesFixture, { roleTag: 'admin' }, 'r1')?.role.roleId).toBe('r2');
+  });
+});
+
+describe('isRoleIdentityAvailable', () => {
+  it('is the boolean inverse of findRoleConflict', () => {
+    expect(isRoleIdentityAvailable(rolesFixture, { roleTag: 'mod' })).toBe(false);
+    expect(isRoleIdentityAvailable(rolesFixture, { roleTag: 'helper', displayName: 'Helper' })).toBe(true);
+  });
+});
+
+describe('getUniqueRoleDefaults', () => {
+  it('returns the unsuffixed base when free', () => {
+    expect(getUniqueRoleDefaults([])).toEqual({ displayName: 'New Role', roleTag: 'newrole' });
+  });
+
+  it('suffixes when the base name/tag is taken', () => {
+    const roles: Role[] = [{ ...baseRole, roleId: 'a', displayName: 'New Role', roleTag: 'newrole' }];
+    expect(getUniqueRoleDefaults(roles)).toEqual({ displayName: 'New Role 2', roleTag: 'newrole-2' });
+  });
+
+  it('skips occupied suffixes (3 in a row)', () => {
+    const roles: Role[] = [
+      { ...baseRole, roleId: 'a', displayName: 'New Role', roleTag: 'newrole' },
+      { ...baseRole, roleId: 'b', displayName: 'New Role 2', roleTag: 'newrole-2' },
+    ];
+    expect(getUniqueRoleDefaults(roles)).toEqual({ displayName: 'New Role 3', roleTag: 'newrole-3' });
+  });
+
+  it('the produced defaults are actually available', () => {
+    const roles: Role[] = [{ ...baseRole, roleId: 'a', displayName: 'New Role', roleTag: 'newrole' }];
+    const d = getUniqueRoleDefaults(roles);
+    expect(isRoleIdentityAvailable(roles, d)).toBe(true);
   });
 });

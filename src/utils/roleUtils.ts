@@ -103,3 +103,83 @@ export function toggleRolePermission(role: Role, permission: Permission): Role {
 export function setRolePermissions(role: Role, permissions: Permission[]): Role {
   return { ...role, permissions };
 }
+
+// ============================================
+// ROLE TAG / NAME UNIQUENESS
+// ============================================
+//
+// A role has both a `roleTag` (used to @mention the role) and a `displayName`.
+// Neither should collide with another role in the same space. Matching is
+// case-insensitive and trims surrounding whitespace, so "Mod" and " mod " are
+// considered the same. Both clients should enforce this identically.
+
+/** Which field of a candidate role collides with an existing role. */
+export type RoleConflictField = 'roleTag' | 'displayName';
+
+const normalizeRoleValue = (value: string): string => value.trim().toLowerCase();
+
+/**
+ * Find the first existing role whose tag or name collides with the candidate.
+ * Returns `null` if the candidate is unique.
+ *
+ * @param roles       all roles currently in the space
+ * @param candidate   the tag/name being created or edited
+ * @param excludeRoleId  when editing, the role being edited (so it doesn't
+ *                       conflict with itself)
+ */
+export function findRoleConflict(
+  roles: Role[],
+  candidate: { roleTag?: string; displayName?: string },
+  excludeRoleId?: string,
+): { field: RoleConflictField; role: Role } | null {
+  const tag = candidate.roleTag != null ? normalizeRoleValue(candidate.roleTag) : undefined;
+  const name = candidate.displayName != null ? normalizeRoleValue(candidate.displayName) : undefined;
+
+  for (const role of roles) {
+    if (role.roleId === excludeRoleId) continue;
+    if (tag && normalizeRoleValue(role.roleTag) === tag) {
+      return { field: 'roleTag', role };
+    }
+    if (name && normalizeRoleValue(role.displayName) === name) {
+      return { field: 'displayName', role };
+    }
+  }
+  return null;
+}
+
+/** True if the candidate tag/name does not collide with any existing role. */
+export function isRoleIdentityAvailable(
+  roles: Role[],
+  candidate: { roleTag?: string; displayName?: string },
+  excludeRoleId?: string,
+): boolean {
+  return findRoleConflict(roles, candidate, excludeRoleId) === null;
+}
+
+/**
+ * Produce a unique default displayName + roleTag for a NEW role, suffixing a
+ * number when the base is already taken: "New Role", "New Role 2", … and
+ * "newrole", "newrole-2", …. Avoids creating duplicate-named roles when the
+ * user repeatedly hits an "add role" button (there is no per-role save gate).
+ */
+export function getUniqueRoleDefaults(
+  roles: Role[],
+  baseName = 'New Role',
+  baseTag = 'newrole',
+): { displayName: string; roleTag: string } {
+  let n = 1;
+  // n === 1 is the unsuffixed base; 2+ append the number.
+  // Loop until both the name and the tag are free at the same suffix.
+  // (Bounded by roles.length + 1 in practice; the guard caps pathological input.)
+  while (n < roles.length + 2) {
+    const displayName = n === 1 ? baseName : `${baseName} ${n}`;
+    const roleTag = n === 1 ? baseTag : `${baseTag}-${n}`;
+    if (isRoleIdentityAvailable(roles, { roleTag, displayName })) {
+      return { displayName, roleTag };
+    }
+    n++;
+  }
+  // Fallback (shouldn't happen): force-unique with the count.
+  const suffix = roles.length + 1;
+  return { displayName: `${baseName} ${suffix}`, roleTag: `${baseTag}-${suffix}` };
+}
