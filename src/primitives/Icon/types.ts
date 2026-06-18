@@ -153,6 +153,7 @@ export type IconName =
   | 'file-text'
   | 'image'
   | 'folder'
+  | 'folders'
   | 'folder-minus'
   | 'bookmark'
   | 'bookmark-off'
