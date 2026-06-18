@@ -246,7 +246,9 @@ export type IconName =
   | 'plane'
 
   // Custom SVG icons
-  | 'farcaster';
+  | 'farcaster'
+  | 'quilibrium'
+  | 'quorum';
 
 export type IconSize =
   | 'xs'
