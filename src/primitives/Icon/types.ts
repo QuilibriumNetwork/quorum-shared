@@ -246,7 +246,10 @@ export type IconName =
   | 'plane'
 
   // Custom SVG icons
-  | 'farcaster';
+  | 'farcaster'
+  | 'quilibrium'
+  | 'quorum'
+  | 'apex-star';
 
 export type IconSize =
   | 'xs'
@@ -280,6 +283,12 @@ export interface IconProps {
    * the component will fall back to the outline version and log a warning.
    */
   variant?: IconVariant;
+  /**
+   * When true, custom icons with per-path brand colors render in their original
+   * colors instead of inheriting the current text color. Has no effect on Tabler
+   * icons or custom icons that don't define per-path fills.
+   */
+  colored?: boolean;
 }
 
 export interface IconWebProps extends IconProps {

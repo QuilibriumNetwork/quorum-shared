@@ -37,6 +37,7 @@ export function Icon({
   id, // Ignored on native - for API consistency
   onClick,
   variant = 'outline',
+  colored = false,
 }: IconNativeProps) {
   const theme = useTheme();
   const colors = theme.colors;
@@ -52,6 +53,7 @@ export function Icon({
     const def = customIcons[name];
     const iconSize = getSizeValue(size);
     const iconColor = color || colors.text.main;
+    const usePathFills = colored && def.colored;
     const combinedStyle = {
       ...(disabled && { opacity: 0.5 }),
       ...style,
@@ -65,7 +67,12 @@ export function Icon({
         style={combinedStyle}
       >
         {def.paths.map((p, i) => (
-          <Path key={i} d={p.d} fill={iconColor} fillRule={p.fillRule} />
+          <Path
+            key={i}
+            d={p.d}
+            fill={usePathFills ? p.fill : iconColor}
+            fillRule={p.fillRule}
+          />
         ))}
       </Svg>
     );

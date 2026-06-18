@@ -34,6 +34,7 @@ export function Icon({
   id,
   onClick,
   variant = 'outline',
+  colored = false,
 }: IconWebProps) {
   const iconComponentName = iconComponentMap[name];
 
@@ -128,6 +129,8 @@ export function Icon({
       color: iconColor,
     };
 
+    const usePathFills = colored && def.colored;
+
     return (
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -142,7 +145,12 @@ export function Icon({
         aria-hidden="true"
       >
         {def.paths.map((p, i) => (
-          <path key={i} d={p.d} fill={p.fill} fillRule={p.fillRule} />
+          <path
+            key={i}
+            d={p.d}
+            fill={usePathFills ? p.fill : 'currentColor'}
+            fillRule={p.fillRule}
+          />
         ))}
       </svg>
     );

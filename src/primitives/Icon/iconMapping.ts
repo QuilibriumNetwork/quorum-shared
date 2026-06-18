@@ -257,6 +257,9 @@ export const iconComponentMap: Record<IconName, string> = {
   // Custom SVG icons — handled separately in Icon.web/native, not via Tabler library.
   // Entry kept here so isValidIconName() recognises the name.
   farcaster: '__custom__',
+  quilibrium: '__custom__',
+  quorum: '__custom__',
+  'apex-star': '__custom__',
 };
 
 /**
