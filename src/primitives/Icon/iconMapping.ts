@@ -162,6 +162,7 @@ export const iconComponentMap: Record<IconName, string> = {
   'file-text': 'IconFileText',
   image: 'IconPhoto',
   folder: 'IconFolder',
+  folders: 'IconFolders',
   'folder-minus': 'IconFolderMinus',
   bookmark: 'IconBookmark',
   'bookmark-off': 'IconBookmarkOff',
