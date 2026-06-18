@@ -249,7 +249,8 @@ export type IconName =
   | 'farcaster'
   | 'quilibrium'
   | 'quorum'
-  | 'apex-star';
+  | 'apex-star'
+  | 'qns';
 
 export type IconSize =
   | 'xs'
