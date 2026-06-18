@@ -260,6 +260,7 @@ export const iconComponentMap: Record<IconName, string> = {
   quilibrium: '__custom__',
   quorum: '__custom__',
   'apex-star': '__custom__',
+  qns: '__custom__',
 };
 
 /**
