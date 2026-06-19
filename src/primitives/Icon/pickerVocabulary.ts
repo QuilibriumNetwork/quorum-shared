@@ -251,16 +251,16 @@ export const ICON_OPTIONS: IconOption[] = [
 // so the role-color palette has enough distinct hues (see getRoleColorHex).
 export const ICON_COLORS: ColorOption[] = [
   { value: 'default', label: 'Default', class: 'text-subtle', hex: '#9ca3af' },
-  { value: 'blue', label: 'Blue', class: 'text-accent-blue', hex: '#3b82f6' },
-  { value: 'purple', label: 'Purple', class: 'text-accent-purple', hex: '#8b5cf6' },
-  { value: 'fuchsia', label: 'Fuchsia', class: 'text-accent-fuchsia', hex: '#d946ef' },
-  { value: 'green', label: 'Green', class: 'text-accent-green', hex: '#22c55e' },
+  { value: 'red', label: 'Red', class: 'text-accent-red', hex: '#ef4444' },
   { value: 'orange', label: 'Orange', class: 'text-accent-orange', hex: '#f97316' },
   { value: 'yellow', label: 'Yellow', class: 'text-accent-yellow', hex: '#eab308' },
-  { value: 'red', label: 'Red', class: 'text-accent-red', hex: '#ef4444' },
+  { value: 'green', label: 'Green', class: 'text-accent-green', hex: '#22c55e' },
   { value: 'teal', label: 'Teal', class: 'text-accent-teal', hex: '#14b8a6' },
   { value: 'sky', label: 'Sky', class: 'text-accent-sky', hex: '#0ea5e9' },
+  { value: 'blue', label: 'Blue', class: 'text-accent-blue', hex: '#3b82f6' },
   { value: 'indigo', label: 'Indigo', class: 'text-accent-indigo', hex: '#6366f1' },
+  { value: 'purple', label: 'Purple', class: 'text-accent-purple', hex: '#8b5cf6' },
+  { value: 'fuchsia', label: 'Fuchsia', class: 'text-accent-fuchsia', hex: '#d946ef' },
   { value: 'pink', label: 'Pink', class: 'text-accent-pink', hex: '#ec4899' },
 ];
 
@@ -268,16 +268,16 @@ export const ICON_COLORS: ColorOption[] = [
 // New hues (teal/sky/indigo/pink) added 2026-06-14 to mirror ICON_COLORS.
 export const FOLDER_COLORS: ColorOption[] = [
   { value: 'default', label: 'Default', class: 'text-subtle', hex: '#6b7280' },
-  { value: 'blue', label: 'Blue', class: 'text-accent-blue', hex: '#5f8eeb' },
-  { value: 'purple', label: 'Purple', class: 'text-accent-purple', hex: '#9673ea' },
-  { value: 'fuchsia', label: 'Fuchsia', class: 'text-accent-fuchsia', hex: '#c54cc7' },
-  { value: 'green', label: 'Green', class: 'text-accent-green', hex: '#40b589' },
+  { value: 'red', label: 'Red', class: 'text-accent-red', hex: '#e7615d' },
   { value: 'orange', label: 'Orange', class: 'text-accent-orange', hex: '#ec814a' },
   { value: 'yellow', label: 'Yellow', class: 'text-accent-yellow', hex: '#d4a017' },
-  { value: 'red', label: 'Red', class: 'text-accent-red', hex: '#e7615d' },
+  { value: 'green', label: 'Green', class: 'text-accent-green', hex: '#40b589' },
   { value: 'teal', label: 'Teal', class: 'text-accent-teal', hex: '#3fa99a' },
   { value: 'sky', label: 'Sky', class: 'text-accent-sky', hex: '#3f9fd1' },
+  { value: 'blue', label: 'Blue', class: 'text-accent-blue', hex: '#5f8eeb' },
   { value: 'indigo', label: 'Indigo', class: 'text-accent-indigo', hex: '#7376e0' },
+  { value: 'purple', label: 'Purple', class: 'text-accent-purple', hex: '#9673ea' },
+  { value: 'fuchsia', label: 'Fuchsia', class: 'text-accent-fuchsia', hex: '#c54cc7' },
   { value: 'pink', label: 'Pink', class: 'text-accent-pink', hex: '#d36493' },
 ];
 
