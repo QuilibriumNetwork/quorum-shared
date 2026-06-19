@@ -252,6 +252,7 @@ export const iconComponentMap: Record<IconName, string> = {
   fire: 'IconFlame',
   globe: 'IconWorld',
   'globe-search': 'IconWorldSearch',
+  'world-map': 'IconWorldMap',
   compass: 'IconCompass',
   plane: 'IconPlane',
 

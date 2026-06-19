@@ -210,6 +210,7 @@ export const ICON_OPTIONS: IconOption[] = [
   // 9 — Travel & Places
   { name: 'globe', tier: 9, category: 'Network' },
   { name: 'compass', tier: 9, category: 'Explore' },
+  { name: 'world-map', tier: 9, category: 'Map' },
   { name: 'map-pin', tier: 9, category: 'Location' },
   { name: 'plane', tier: 9, category: 'Travel' },
   { name: 'link', tier: 9, category: 'Links' },

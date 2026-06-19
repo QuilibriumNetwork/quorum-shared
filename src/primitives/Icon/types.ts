@@ -153,6 +153,7 @@ export type IconName =
   | 'file-text'
   | 'image'
   | 'folder'
+  | 'folders'
   | 'folder-minus'
   | 'bookmark'
   | 'bookmark-off'
@@ -242,6 +243,7 @@ export type IconName =
   | 'fire'
   | 'globe'
   | 'globe-search'
+  | 'world-map'
   | 'compass'
   | 'plane'
 
