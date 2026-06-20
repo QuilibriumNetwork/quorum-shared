@@ -64,6 +64,7 @@ export const iconComponentMap: Record<IconName, string> = {
   'arrow-down-right': 'IconArrowDownRight',
   'arrows-up-down': 'IconArrowsUpDown',
   'arrows-exchange': 'IconArrowsExchange',
+  merge: 'IconArrowMerge',
   'arrow-forward-up': 'IconArrowForwardUp',
   'circle-arrow-up': 'IconCircleArrowUp',
   'circle-arrow-down': 'IconCircleArrowDown',

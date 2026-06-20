@@ -54,6 +54,7 @@ export type IconName =
   | 'arrow-down-right'
   | 'arrows-up-down'
   | 'arrows-exchange'
+  | 'merge'
   | 'arrow-forward-up'
   | 'circle-arrow-up'
   | 'circle-arrow-down'
