@@ -82,6 +82,7 @@ export const iconComponentMap: Record<IconName, string> = {
   trash: 'IconTrash',
   edit: 'IconEdit',
   pencil: 'IconPencil',
+  feather: 'IconFeather',
   copy: 'IconCopy',
   share: 'IconShare',
   download: 'IconDownload',

@@ -168,6 +168,7 @@ export const ICON_OPTIONS: IconOption[] = [
   // 5 — Work, Files & Dev
   { name: 'briefcase', tier: 5, category: 'Business' },
   { name: 'book', tier: 5, category: 'Documentation' },
+  { name: 'feather', tier: 5, category: 'Writing' },
   { name: 'file', tier: 5, category: 'Files' },
   { name: 'file-code', tier: 5, category: 'Code Files' },
   { name: 'paperclip', tier: 5, category: 'Attachments' },

@@ -72,6 +72,7 @@ export type IconName =
   | 'trash'
   | 'edit'
   | 'pencil'
+  | 'feather'
   | 'copy'
   | 'share'
   | 'download'
