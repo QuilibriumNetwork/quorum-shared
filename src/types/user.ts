@@ -26,6 +26,11 @@ export type NotificationSettings = {
   mentions?: boolean;
   replies?: boolean;
   all?: boolean;
+  // When true, ALL notifications for this space are suppressed (space-level mute).
+  // Takes precedence over per-channel mute. Desktop already writes this field;
+  // declaring it here lets both apps read/write it typed and keeps space-mute in
+  // sync across devices via the UserConfig blob.
+  isMuted?: boolean;
 };
 
 export type UserNote = {
@@ -93,6 +98,13 @@ export type UserConfig = {
   hideMutedSpacesFromSidebar?: boolean;
   favoriteDMs?: string[];
   mutedConversations?: string[];
+  // Personal "block user": addresses whose messages the viewer hides from their
+  // own stream, scoped per space. This is a viewer-side hide (no moderation
+  // effect, no permission needed) — distinct from the role-gated moderation mute
+  // (MuteMessage). Synced cross-device via the UserConfig blob.
+  blockedUsers?: {
+    [spaceId: string]: string[];
+  };
   spaceTagId?: string;
   lastBroadcastSpaceTag?: {
     letters: string;

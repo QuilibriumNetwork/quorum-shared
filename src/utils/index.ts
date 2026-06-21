@@ -24,6 +24,7 @@ export * from './avatar';
 export * from './canonicalize';
 export * from './clipboard';
 export * from './notificationSettingsUtils';
+export * from './blockUtils';
 export * from './inviteDomain';
 export * from './environmentDomains';
 export * from './youtubeUtils';
