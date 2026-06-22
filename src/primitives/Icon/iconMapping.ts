@@ -123,6 +123,7 @@ export const iconComponentMap: Record<IconName, string> = {
   'user-search': 'IconUserSearch',
   'message-search': 'IconMessageCircleSearch',
   'hand-stop': 'IconHandStop',
+  'hand-off': 'IconHandOff',
   party: 'IconConfetti',
   gift: 'IconGift',
   'hand-peace': 'IconHandStop',

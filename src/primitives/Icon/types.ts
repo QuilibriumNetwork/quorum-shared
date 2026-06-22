@@ -113,6 +113,7 @@ export type IconName =
   | 'user-search'
   | 'message-search'
   | 'hand-stop'
+  | 'hand-off'
   | 'party'
   | 'gift'
   | 'hand-peace'
