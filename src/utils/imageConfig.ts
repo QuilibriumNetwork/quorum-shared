@@ -118,9 +118,12 @@ export const IMAGE_CONFIGS = {
   } as ImageConfig,
 
   /**
-   * Space banners - 16:9, no GIFs. Store a clean 16:9 source and let each
-   * surface cover-crop at render (channel-list strip, mobile header, future
-   * discover hero). 1600x900.
+   * Space banners - no GIFs. 1600x900 is a BOUNDING BOX (maintainAspectRatio),
+   * not a target shape: the user's image keeps its aspect, capped to fit. Each
+   * surface cover-crops at render. Banners display as a wide ~2:1 strip
+   * (desktop channel-list header ~260-300x132; mobile header full-width x180;
+   * future discover hero), so the upload UI hints "optimal ratio 2:1". The box
+   * is sized for the largest consumer (full-width mobile/discover at ~3x DPR).
    */
   spaceBanner: {
     maxWidth: 1600,
