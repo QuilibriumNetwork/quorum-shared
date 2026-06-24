@@ -13,6 +13,42 @@ export function truncateText(text: string, maxLength: number): string {
 }
 
 /**
+ * Truncate a Quilibrium address for display.
+ *
+ * Every Quilibrium address is a CIDv0 ("Qm" + 44 base58 chars); the "Qm"
+ * prefix is a constant multihash header (0x12 0x20) and carries ZERO entropy.
+ * We keep "Qm" visible (brand recognizability) but do NOT spend the `start`
+ * budget on it — `start` counts MEANINGFUL chars after the prefix. This yields
+ * a true `start + end`-char discriminating anchor, which matters for resisting
+ * address-grinding/impersonation. Defaults (6/6) give a 12-char anchor.
+ *
+ * Truncation is a disambiguation + anti-grind label, NOT identity proof —
+ * surface the full address for real trust decisions.
+ *
+ * @param address  Full address (or @username, returned verbatim).
+ * @param start    Meaningful leading chars to show AFTER the Qm prefix. Default 6.
+ * @param end      Trailing chars to show. Default 6.
+ */
+export function formatAddress(
+  address: string | undefined | null,
+  start = 6,
+  end = 6,
+): string {
+  if (!address) return '';
+  if (address.startsWith('@')) return address; // username passthrough
+
+  // 'Qm' = constant CIDv0 multihash prefix → zero entropy. Keep it visible,
+  // but don't count it toward `start`.
+  const hasQm = address.startsWith('Qm');
+  const head = hasQm ? 2 : 0;
+
+  // If too short to truncate meaningfully, return as-is.
+  if (address.length <= head + start + end + 1) return address;
+
+  return `${address.slice(0, head + start)}…${address.slice(-end)}`;
+}
+
+/**
  * Format file size (e.g., "1.5 MB")
  */
 export function formatFileSize(bytes: number): string {
