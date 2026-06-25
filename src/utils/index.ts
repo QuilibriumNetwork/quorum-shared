@@ -17,6 +17,7 @@ export * from './messageLinkUtils';
 export * from './messagePreview';
 export * from './markdownFormatting';
 export * from './markdownStripping';
+export * from './messagePreprocessing';
 export * from './codeFormatting';
 export * from './formatMentionCount';
 export * from './rateLimit';
