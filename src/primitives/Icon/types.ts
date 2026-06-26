@@ -254,6 +254,23 @@ export type IconName =
   | 'compass'
   | 'plane'
 
+  // Channel-icon-picker additions (2026-06-26)
+  | 'sticker'
+  | 'tank'
+  | 'gender-female'
+  | 'gender-male'
+  | 'bomb'
+  | 'om'
+  | 'cross'
+  | 'menorah'
+  | 'ankh'
+  | 'jewish-star'
+  | 'confucius'
+  | 'ghost'
+  | 'spiral'
+  | 'heart-handshake'
+  | 'flower'
+
   // Custom SVG icons
   | 'farcaster'
   | 'quilibrium'
