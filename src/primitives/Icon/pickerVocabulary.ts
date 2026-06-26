@@ -118,6 +118,12 @@ export const FILLED_ICONS: Set<IconName> = new Set([
   'compass', // IconCompassFilled
   'map-pin', // IconMapPinFilled
   'sparkles', // IconSparklesFilled
+
+  // Channel-icon-picker additions (2026-06-26) that have filled variants.
+  'bomb', // IconBombFilled
+  'cross', // IconCrossFilled
+  'jewish-star', // IconJewishStarFilled
+  'ghost', // IconGhost3Filled
 ]);
 
 // Curated picker icons grouped into tight semantic clusters — neighbors always
@@ -141,10 +147,13 @@ export const ICON_OPTIONS: IconOption[] = [
   { name: 'crown', tier: 2, category: 'Owner' },
   { name: 'heart', tier: 2, category: 'Community' },
   { name: 'hand-peace', tier: 2, category: 'Friendly' },
+  { name: 'heart-handshake', tier: 2, category: 'Connection' },
   { name: 'smile', tier: 2, category: 'Fun' },
-  { name: 'mood-happy', tier: 2, category: 'Mood' },
   { name: 'party', tier: 2, category: 'Celebrations' },
   { name: 'gift', tier: 2, category: 'Rewards' },
+  { name: 'ghost', tier: 2, category: 'Playful' },
+  { name: 'gender-female', tier: 2, category: 'Gender' },
+  { name: 'gender-male', tier: 2, category: 'Gender' },
 
   // 3 — Communication
   { name: 'message', tier: 3, category: 'Discussion' },
@@ -195,6 +204,7 @@ export const ICON_OPTIONS: IconOption[] = [
   { name: 'leaf', tier: 7, category: 'Nature' },
   { name: 'seedling', tier: 7, category: 'Nature' },
   { name: 'tree', tier: 7, category: 'Outdoors' },
+  { name: 'flower', tier: 7, category: 'Flowers' },
   { name: 'paw', tier: 7, category: 'Animals' },
   { name: 'utensils', tier: 7, category: 'Food' },
   { name: 'fire', tier: 7, category: 'Hot' },
@@ -202,6 +212,8 @@ export const ICON_OPTIONS: IconOption[] = [
   // 8 — Gaming, Combat & Achievements
   { name: 'gamepad', tier: 8, category: 'Gaming' },
   { name: 'sword', tier: 8, category: 'Combat' },
+  { name: 'tank', tier: 8, category: 'Combat' },
+  { name: 'bomb', tier: 8, category: 'Combat' },
   { name: 'headset', tier: 8, category: 'Gaming Communication' },
   { name: 'target', tier: 8, category: 'Goals' },
   { name: 'trophy', tier: 8, category: 'Achievements' },
@@ -243,6 +255,15 @@ export const ICON_OPTIONS: IconOption[] = [
   { name: 'sparkles', tier: 12, category: 'Highlights' },
   { name: 'circle', tier: 12, category: 'Shapes' },
   { name: 'square', tier: 12, category: 'Shapes' },
+  { name: 'spiral', tier: 12, category: 'Shapes' },
+
+  // 13 — Religion & Belief
+  { name: 'cross', tier: 13, category: 'Christianity' },
+  { name: 'jewish-star', tier: 13, category: 'Judaism' },
+  { name: 'menorah', tier: 13, category: 'Judaism' },
+  { name: 'om', tier: 13, category: 'Hinduism' },
+  { name: 'ankh', tier: 13, category: 'Spirituality' },
+  { name: 'confucius', tier: 13, category: 'Confucianism' },
 ];
 
 // Icon colors in rainbow order: app-default, blue, sky, teal, green, yellow,
