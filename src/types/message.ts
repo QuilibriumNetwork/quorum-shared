@@ -131,6 +131,16 @@ export type DeleteConversationMessage = {
   type: 'delete-conversation';
 };
 
+// Sent to your OWN other devices to wipe the whole conversation locally.
+// Distinct from delete-conversation (targets the counterparty, only resets their
+// session). conversationAddress = the counterparty to remove; E2E-encrypted to
+// your own devices, which already know it.
+export type DeleteConversationSelfMessage = {
+  senderId: string;
+  type: 'delete-conversation-self';
+  conversationAddress: string;
+};
+
 export type EditMessage = {
   senderId: string;
   type: 'edit-message';
@@ -267,6 +277,7 @@ export type MessageContent =
   | StickerMessage
   | PinMessage
   | DeleteConversationMessage
+  | DeleteConversationSelfMessage
   | EditMessage
   | CallOfferMessage
   | CallAnswerMessage
