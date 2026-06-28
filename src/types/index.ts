@@ -35,6 +35,7 @@ export type {
   StickerMessage,
   PinMessage,
   DeleteConversationMessage,
+  DeleteConversationSelfMessage,
   EditMessage,
   CallOfferMessage,
   CallAnswerMessage,
