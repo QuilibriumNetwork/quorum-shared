@@ -6,6 +6,7 @@ export * from './validation';
 export * from './mentions';
 export * from './resolveDisplayName';
 export * from './formatting';
+export * from './dateFormatting';
 export * from './encoding';
 export * from './logger';
 export * from './permissions';
