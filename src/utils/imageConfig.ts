@@ -6,8 +6,8 @@
  * (compressorjs) and mobile (expo-image-manipulator). Keep it import-free so it
  * builds cleanly for both the web and React Native bundles.
  *
- * Canonical dimensions decided 2026-06-24 (desktop + mobile consistency):
- *   avatar 256, space icon 256, emoji 96, sticker 512 (longest axis),
+ * Canonical dimensions (desktop + mobile consistency):
+ *   avatar 512, space icon 256, emoji 128, sticker 512 (longest axis),
  *   space banner 1600x900 (16:9, cropped at render), message attachment 1200.
  */
 
@@ -93,11 +93,12 @@ export interface ImageProcessingOptions {
 export const IMAGE_CONFIGS = {
   /**
    * User avatars - square crop, no GIFs.
-   * 256x256 source. Display ~40-82px; 82 x 3 DPR ~= 246 -> 256.
+   * 512x512 source: avatars open full-screen when tapped, so they must stay
+   * crisp far beyond their small list-row display size.
    */
   avatar: {
-    maxWidth: 256,
-    maxHeight: 256,
+    maxWidth: 512,
+    maxHeight: 512,
     quality: 0.8,
     cropToFit: true,
     skipCompressionThreshold: 50 * 1024, // 50KB
@@ -157,11 +158,11 @@ export const IMAGE_CONFIGS = {
 
   /**
    * Custom emojis - tiny display, preserve small GIFs.
-   * 96x96 source. Display 24px; 24 x 3 DPR = 72 -> 96 for picker preview headroom.
+   * 128x128 source for picker-preview headroom and crispness when enlarged.
    */
   emoji: {
-    maxWidth: 96,
-    maxHeight: 96,
+    maxWidth: 128,
+    maxHeight: 128,
     quality: 0.8,
     cropToFit: true,
     skipCompressionThreshold: 50 * 1024, // 50KB

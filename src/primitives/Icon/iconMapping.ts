@@ -126,7 +126,7 @@ export const iconComponentMap: Record<IconName, string> = {
   'hand-off': 'IconHandOff',
   party: 'IconConfetti',
   gift: 'IconGift',
-  'hand-peace': 'IconHandStop',
+  'hand-peace': 'IconHandLoveYou',
   'hand-rock': 'IconHandRock',
   ban: 'IconBan',
   cake: 'IconCake',
@@ -262,6 +262,23 @@ export const iconComponentMap: Record<IconName, string> = {
   'world-map': 'IconWorldMap',
   compass: 'IconCompass',
   plane: 'IconPlane',
+
+  // Channel-icon-picker additions (2026-06-26). All exist in @tabler/icons.
+  sticker: 'IconSticker',
+  tank: 'IconTank',
+  'gender-female': 'IconGenderFemale',
+  'gender-male': 'IconGenderMale',
+  bomb: 'IconBomb',
+  om: 'IconOm',
+  cross: 'IconCross',
+  menorah: 'IconMenorah',
+  ankh: 'IconAnkh',
+  'jewish-star': 'IconJewishStar',
+  confucius: 'IconConfucius',
+  ghost: 'IconGhost3',
+  spiral: 'IconSpiral',
+  'heart-handshake': 'IconHeartHandshake',
+  flower: 'IconFlower',
 
   // Custom SVG icons — handled separately in Icon.web/native, not via Tabler library.
   // Entry kept here so isValidIconName() recognises the name.
