@@ -14,6 +14,7 @@ export * from './roleUtils';
 export * from './channelPermissions';
 export * from './channelUtils';
 export * from './messageGrouping';
+export * from './editHistory';
 export * from './messageLinkUtils';
 export * from './messagePreview';
 export * from './markdownFormatting';
