@@ -33,4 +33,5 @@ export * from './environmentDomains';
 export * from './youtubeUtils';
 export * from './imageConfig';
 export * from './imageOrchestration';
+export * from './keyedMutex';
 export { default as dayjs } from './dayjs';
