@@ -10,6 +10,8 @@ import type {
   PinMessage,
   MuteMessage,
   ThreadMessage,
+  SpaceCallStartMessage,
+  SpaceCallEndMessage,
 } from '../types';
 
 /**
@@ -34,6 +36,8 @@ export function canonicalize(
     | PinMessage
     | MuteMessage
     | ThreadMessage
+    | SpaceCallStartMessage
+    | SpaceCallEndMessage
 ): string {
   if (typeof pendingMessage === 'string') {
     return pendingMessage;
@@ -132,6 +136,16 @@ export function canonicalize(
       pendingMessage.action +
       pendingMessage.threadMeta.threadId
     );
+  }
+
+  // Call branches MUST match mobile's canonicalizeContent byte-for-byte
+  // (quorum-mobile spaceMessageService.ts).
+  if (pendingMessage.type === 'space-call-start') {
+    return pendingMessage.type + pendingMessage.callId + pendingMessage.mediaType;
+  }
+
+  if (pendingMessage.type === 'space-call-end') {
+    return pendingMessage.type + pendingMessage.callId;
   }
 
   throw new Error('invalid message type');

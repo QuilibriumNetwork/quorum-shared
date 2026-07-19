@@ -260,6 +260,7 @@ export const iconComponentMap: Record<IconName, string> = {
   globe: 'IconWorld',
   'globe-search': 'IconWorldSearch',
   'world-map': 'IconWorldMap',
+  language: 'IconLanguage',
   compass: 'IconCompass',
   plane: 'IconPlane',
 

@@ -251,6 +251,7 @@ export type IconName =
   | 'globe'
   | 'globe-search'
   | 'world-map'
+  | 'language'
   | 'compass'
   | 'plane'
 

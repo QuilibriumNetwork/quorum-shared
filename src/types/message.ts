@@ -33,6 +33,14 @@ export type UpdateProfileMessage = {
   displayName?: string;
   userIcon: string;
   bio?: string;
+  // GLOBAL identity slot (two-slot model): the sender's current global
+  // name/icon/bio, stored separately from the per-space override fields above.
+  // Wire names are identical across apps; local storage names differ
+  // (desktop global_user_icon vs mobile global_profile_image). Additive —
+  // old clients ignore these; not hashed by canonicalize.
+  globalDisplayName?: string;
+  globalUserIcon?: string;
+  globalBio?: string;
   spaceTag?: BroadcastSpaceTag;
 };
 
