@@ -25,6 +25,7 @@ export * from './formatMentionCount';
 export * from './rateLimit';
 export * from './avatar';
 export * from './canonicalize';
+export * from './messageAuth';
 export * from './clipboard';
 export * from './notificationSettingsUtils';
 export * from './blockUtils';
