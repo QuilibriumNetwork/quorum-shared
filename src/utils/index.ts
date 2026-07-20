@@ -26,6 +26,7 @@ export * from './rateLimit';
 export * from './avatar';
 export * from './canonicalize';
 export * from './messageAuth';
+export * from './deviceKeys';
 export * from './clipboard';
 export * from './notificationSettingsUtils';
 export * from './blockUtils';
