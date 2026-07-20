@@ -146,3 +146,26 @@ export type SpaceMember = UserProfile & {
   /** Alias for `profile_image` - matches SDK wire format (channel.UserProfile) */
   user_icon?: string;
 };
+
+/**
+ * An additional per-device signing key admitted for a space member, proven by
+ * a statement signed with the member's master identity key. Stored separately
+ * from the member row: it NEVER writes the join-bound `inbox_address` (which
+ * stays the sole authority of the verified join). One row per device per space.
+ * See utils/deviceKeys.ts for how these are minted, verified, and resolved.
+ */
+export type SpaceMemberDevice = {
+  spaceId: string;
+  /** The member this key belongs to (their master user address). */
+  userAddress: string;
+  /** The device's DM inbox_address — attribution label + revocation handle. Self-asserted (not verified against the hub registration at receive). */
+  deviceInboxAddress: string;
+  /** Reverse-lookup key: deriveInboxAddress(spaceKeyPublicKey). Matched against a message's signing-key address. */
+  inboxAddress: string;
+  /** The device's per-space ed448 signing public key (hex). */
+  spaceKeyPublicKey: string;
+  /** Statement timestamp (ms) — last-write-wins ordering against revocations. */
+  timestamp: number;
+  /** true once a revoke-device tombstone with timestamp >= this arrived. Kept, never deleted. */
+  revoked?: boolean;
+};
