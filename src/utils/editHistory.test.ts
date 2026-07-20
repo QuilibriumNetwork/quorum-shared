@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   MESSAGE_EDIT_WINDOW_MS,
-  buildLocalEdits,
-  applyReceivedEdit,
+  applyEdit,
+  type EditableMessageState,
 } from './editHistory';
 
 describe('MESSAGE_EDIT_WINDOW_MS', () => {
@@ -11,68 +11,124 @@ describe('MESSAGE_EDIT_WINDOW_MS', () => {
   });
 });
 
-describe('buildLocalEdits', () => {
-  it('returns [] when history is off (drops prior versions)', () => {
-    const prior = [{ text: 'old', modifiedDate: 1, lastModifiedHash: '' }];
-    expect(buildLocalEdits(prior, 'new', 2, false)).toEqual([]);
-  });
+describe('applyEdit', () => {
+  // A freshly-posted, never-edited message (modifiedDate === createdDate).
+  const original: EditableMessageState = {
+    text: 'original',
+    createdDate: 100,
+    modifiedDate: 100,
+    nonce: 'nonce-0',
+    lastModifiedHash: '',
+    edits: [],
+  };
 
-  it('appends the new version when history is on', () => {
-    const prior = [{ text: 'v1', modifiedDate: 1, lastModifiedHash: '' }];
-    const result = buildLocalEdits(prior, 'v2', 2, true);
-    expect(result).toEqual([
-      { text: 'v1', modifiedDate: 1, lastModifiedHash: '' },
-      { text: 'v2', modifiedDate: 2, lastModifiedHash: '' },
-    ]);
-  });
-
-  it('handles undefined existing edits', () => {
-    expect(buildLocalEdits(undefined, 'first', 5, true)).toEqual([
-      { text: 'first', modifiedDate: 5, lastModifiedHash: '' },
-    ]);
-  });
-});
-
-describe('applyReceivedEdit', () => {
-  it('applies a new edit and records the nonce as lastModifiedHash', () => {
-    const result = applyReceivedEdit(
-      { edits: [], lastModifiedHash: '' },
-      { newText: 'edited', editedAt: 100, editNonce: 'nonce-1', saveEditHistory: false },
-    );
+  it('seeds the ORIGINAL version on the first edit (history on)', () => {
+    const result = applyEdit(original, {
+      editedAt: 200,
+      editNonce: 'nonce-1',
+      saveEditHistory: true,
+    });
     expect(result.changed).toBe(true);
-    expect(result.modifiedDate).toBe(100);
+    expect(result.modifiedDate).toBe(200);
     expect(result.lastModifiedHash).toBe('nonce-1');
+    // edits retains the ORIGINAL text, keyed by the original nonce/createdDate.
+    expect(result.edits).toEqual([
+      { text: 'original', modifiedDate: 100, lastModifiedHash: 'nonce-0' },
+    ]);
+  });
+
+  it('appends the version being replaced on subsequent edits', () => {
+    // Message already edited once: content is now 'v2', edits holds the original.
+    const edited: EditableMessageState = {
+      text: 'v2',
+      createdDate: 100,
+      modifiedDate: 200,
+      nonce: 'nonce-0',
+      lastModifiedHash: 'nonce-1',
+      edits: [{ text: 'original', modifiedDate: 100, lastModifiedHash: 'nonce-0' }],
+    };
+    const result = applyEdit(edited, {
+      editedAt: 300,
+      editNonce: 'nonce-2',
+      saveEditHistory: true,
+    });
+    expect(result.changed).toBe(true);
+    expect(result.edits).toEqual([
+      { text: 'original', modifiedDate: 100, lastModifiedHash: 'nonce-0' },
+      { text: 'v2', modifiedDate: 200, lastModifiedHash: 'nonce-1' },
+    ]);
+  });
+
+  it('full timeline [...edits, current] preserves original + current with no duplication', () => {
+    // Simulate original -> v2 -> v3, threading each result back in.
+    let msg: EditableMessageState = { ...original };
+    const first = applyEdit(msg, { editedAt: 200, editNonce: 'nonce-1', saveEditHistory: true });
+    msg = { text: 'v2', createdDate: 100, modifiedDate: first.modifiedDate, nonce: 'nonce-0', lastModifiedHash: first.lastModifiedHash, edits: first.edits };
+    const second = applyEdit(msg, { editedAt: 300, editNonce: 'nonce-2', saveEditHistory: true });
+    // current content after second edit would be 'v3'
+    const timeline = [...second.edits, { text: 'v3', modifiedDate: second.modifiedDate, lastModifiedHash: second.lastModifiedHash }];
+    expect(timeline.map((t) => t.text)).toEqual(['original', 'v2', 'v3']);
+  });
+
+  it('retains nothing when history is off', () => {
+    const result = applyEdit(original, {
+      editedAt: 200,
+      editNonce: 'nonce-1',
+      saveEditHistory: false,
+    });
+    expect(result.changed).toBe(true);
     expect(result.edits).toEqual([]);
   });
 
-  it('appends to history when saveEditHistory is on', () => {
-    const result = applyReceivedEdit(
-      { edits: [{ text: 'v1', modifiedDate: 1, lastModifiedHash: '' }], lastModifiedHash: '' },
-      { newText: 'v2', editedAt: 200, editNonce: 'nonce-2', saveEditHistory: true },
-    );
-    expect(result.changed).toBe(true);
-    expect(result.edits).toEqual([
-      { text: 'v1', modifiedDate: 1, lastModifiedHash: '' },
-      { text: 'v2', modifiedDate: 200, lastModifiedHash: 'nonce-2' },
-    ]);
-  });
-
   it('is a no-op on replay: same nonce already applied → changed:false, history untouched', () => {
-    const existing = [{ text: 'v1', modifiedDate: 1, lastModifiedHash: 'nonce-x' }];
-    const result = applyReceivedEdit(
-      { edits: existing, lastModifiedHash: 'nonce-x' },
-      { newText: 'v1', editedAt: 300, editNonce: 'nonce-x', saveEditHistory: true },
-    );
+    const existing = [{ text: 'original', modifiedDate: 100, lastModifiedHash: 'nonce-0' }];
+    const edited: EditableMessageState = {
+      text: 'v2',
+      createdDate: 100,
+      modifiedDate: 200,
+      nonce: 'nonce-0',
+      lastModifiedHash: 'nonce-1',
+      edits: existing,
+    };
+    const result = applyEdit(edited, {
+      editedAt: 999,
+      editNonce: 'nonce-1', // same as lastModifiedHash → replay
+      saveEditHistory: true,
+    });
     expect(result.changed).toBe(false);
+    expect(result.modifiedDate).toBe(200); // stored value, not the replayed editedAt
     expect(result.edits).toBe(existing); // unchanged reference — no clobber
   });
 
   it('always applies when editNonce is empty (legacy senders, no replay guard)', () => {
-    const result = applyReceivedEdit(
-      { edits: [], lastModifiedHash: '' },
-      { newText: 'edited', editedAt: 400, editNonce: '', saveEditHistory: false },
-    );
+    const result = applyEdit(original, {
+      editedAt: 400,
+      editNonce: '',
+      saveEditHistory: true,
+    });
     expect(result.changed).toBe(true);
     expect(result.lastModifiedHash).toBe('');
+    // First edit still seeds the original.
+    expect(result.edits).toEqual([
+      { text: 'original', modifiedDate: 100, lastModifiedHash: 'nonce-0' },
+    ]);
+  });
+
+  it('edge: edited before but no retained history → keeps empty (nothing to seed)', () => {
+    const edited: EditableMessageState = {
+      text: 'v2',
+      createdDate: 100,
+      modifiedDate: 200, // already edited (modified !== created)
+      nonce: 'nonce-0',
+      lastModifiedHash: 'nonce-1',
+      edits: [], // but no retained history
+    };
+    const result = applyEdit(edited, {
+      editedAt: 300,
+      editNonce: 'nonce-2',
+      saveEditHistory: true,
+    });
+    expect(result.changed).toBe(true);
+    expect(result.edits).toEqual([]);
   });
 });

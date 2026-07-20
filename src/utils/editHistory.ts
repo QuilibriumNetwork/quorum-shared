@@ -2,11 +2,18 @@
  * Shared edit-history logic for message edits (DM + space), so the send,
  * optimistic-cache, and receive paths across apps can't drift apart.
  *
- * - `saveEditHistory` OFF  → no prior versions are retained (`edits: []`).
- * - `saveEditHistory` ON   → the new version is appended to `edits`.
- * - On the RECEIVE path, a replayed edit-message (same `editNonce` already
- *   applied) is a no-op so a duplicate delivery can't clobber stored history.
- *   `lastModifiedHash` records the applied nonce to make that check possible.
+ * MODEL: `edits[]` retains PRIOR versions, oldest first; the message's live
+ * `content.text` is always the CURRENT version. On the FIRST edit the original
+ * text is seeded into `edits[]` (keyed by the original nonce/createdDate); each
+ * later edit appends the version it replaces. A viewer reconstructs the full
+ * timeline as `[...edits, current]` — this never loses the original and never
+ * duplicates the current version.
+ *
+ * - `saveEditHistory` OFF → no prior versions retained (`edits: []`).
+ * - RECEIVE replay guard: an edit whose `editNonce` already equals the stored
+ *   `lastModifiedHash` is a no-op (`changed: false`) so a duplicate delivery
+ *   can't clobber stored history. An empty `editNonce` (legacy senders that
+ *   don't stamp one) skips the guard and always applies.
  */
 
 import type { Message } from '../types';
@@ -23,72 +30,92 @@ export const MESSAGE_EDIT_WINDOW_MS = 15 * 60 * 1000;
 
 type EditEntry = NonNullable<Message['edits']>[number];
 
-/**
- * Build the `edits` array for an edited message on the SEND / optimistic path,
- * where the editing device applies its own edit exactly once (no replay risk).
- *
- * @param existingEdits prior `edits` on the message (may be undefined)
- * @param newText       the edited text
- * @param editedAt      timestamp of this edit
- * @param saveEditHistory whether to retain prior versions
- */
-export function buildLocalEdits(
-  existingEdits: Message['edits'] | undefined,
-  newText: string | string[],
-  editedAt: number,
-  saveEditHistory: boolean,
-): EditEntry[] {
-  if (!saveEditHistory) return [];
-  return [
-    ...(existingEdits || []),
-    { text: newText, modifiedDate: editedAt, lastModifiedHash: '' },
-  ];
+/** The parts of a message `applyEdit` reads to compute the next edit state. */
+export interface EditableMessageState {
+  /** Current (pre-edit) text — becomes a prior version once replaced. */
+  text: string | string[];
+  createdDate: number;
+  modifiedDate: number;
+  /** Original message nonce; keys the seeded original entry. */
+  nonce: string;
+  /** Nonce of the last applied edit, if any (drives the replay guard). */
+  lastModifiedHash?: string;
+  /** Prior versions already retained, oldest first. */
+  edits?: Message['edits'];
 }
 
-/** Result of applying a received edit to a stored/cached message. */
+/** Result of applying an edit; the caller sets `content.text` to the new text. */
 export interface AppliedEdit {
   /** When false, the edit was already applied — leave the message untouched. */
   changed: boolean;
+  /** New `modifiedDate` for the message (the edit timestamp). */
   modifiedDate: number;
-  /** Records the applied nonce so a later replay is detected and skipped. */
+  /** New `lastModifiedHash` for the message (the edit nonce). */
   lastModifiedHash: string;
+  /** Prior versions after this edit, oldest first. */
   edits: EditEntry[];
 }
 
 /**
- * Decide how a RECEIVED edit-message should mutate a message's edit metadata.
+ * Compute how an edit mutates a message's edit metadata. Used identically on
+ * the SEND / optimistic path and the RECEIVE path (single source of truth): the
+ * replay guard is inert on send (a fresh nonce never matches the stored one)
+ * and active on receive (a re-delivered edit is skipped).
  *
- * Returns `changed: false` when this exact edit (by `editNonce`) was already
- * applied — the caller must then make NO change, preventing a replayed
- * edit-message from wiping previously-stored history. When `editNonce` is empty
- * (legacy senders that don't stamp one) the guard is skipped and the edit is
- * always applied, matching the prior always-apply behavior.
+ * The returned `edits` holds the PRIOR versions; the caller is responsible for
+ * setting the message's `content.text` to the new text and applying
+ * `modifiedDate` / `lastModifiedHash` when `changed` is true.
  */
-export function applyReceivedEdit(
-  current: { edits?: Message['edits']; lastModifiedHash?: string },
-  params: { newText: string | string[]; editedAt: number; editNonce?: string; saveEditHistory: boolean },
+export function applyEdit(
+  current: EditableMessageState,
+  params: { editedAt: number; editNonce?: string; saveEditHistory: boolean },
 ): AppliedEdit {
-  const { newText, editedAt, editNonce, saveEditHistory } = params;
+  const { editedAt, editNonce, saveEditHistory } = params;
+  const existingEdits = current.edits ?? [];
 
-  // Replay guard: same edit already applied → no-op (don't touch edits).
+  // Replay guard: this exact edit already applied → no-op (don't touch history).
   if (editNonce && current.lastModifiedHash === editNonce) {
     return {
       changed: false,
-      modifiedDate: editedAt,
+      modifiedDate: current.modifiedDate,
       lastModifiedHash: current.lastModifiedHash ?? '',
-      edits: current.edits ?? [],
+      edits: existingEdits,
     };
+  }
+
+  let edits: EditEntry[];
+  if (!saveEditHistory) {
+    // History off: retain nothing.
+    edits = [];
+  } else if (current.modifiedDate === current.createdDate) {
+    // First edit: seed the original version (current text is still the original).
+    edits = [
+      {
+        text: current.text,
+        modifiedDate: current.createdDate,
+        lastModifiedHash: current.nonce,
+      },
+    ];
+  } else if (existingEdits.length > 0) {
+    // Subsequent edit: append the version being replaced.
+    edits = [
+      ...existingEdits,
+      {
+        text: current.text,
+        modifiedDate: current.modifiedDate,
+        lastModifiedHash: current.lastModifiedHash || current.nonce,
+      },
+    ];
+  } else {
+    // Edited before but no retained history (e.g. saveEditHistory turned on
+    // after an earlier edit): nothing prior to seed, keep as-is.
+    edits = existingEdits;
   }
 
   return {
     changed: true,
     modifiedDate: editedAt,
     lastModifiedHash: editNonce ?? '',
-    edits: saveEditHistory
-      ? [
-          ...(current.edits || []),
-          { text: newText, modifiedDate: editedAt, lastModifiedHash: editNonce ?? '' },
-        ]
-      : [],
+    edits,
   };
 }
