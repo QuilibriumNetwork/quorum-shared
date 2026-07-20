@@ -29,6 +29,7 @@ export * from './messageAuth';
 export * from './deviceKeys';
 export * from './clipboard';
 export * from './notificationSettingsUtils';
+export * from './conversationSettingsUtils';
 export * from './blockUtils';
 export * from './inviteDomain';
 export * from './environmentDomains';
