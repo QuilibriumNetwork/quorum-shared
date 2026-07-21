@@ -64,6 +64,7 @@ export type {
   NavItem,
   NotificationSettings,
   UserConfig,
+  ConversationSettingOverrides,
   UserNote,
   UserProfile,
   FarcasterLink,
