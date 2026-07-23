@@ -70,8 +70,12 @@ export function Icon({
           <Path
             key={i}
             d={p.d}
-            fill={usePathFills ? p.fill : iconColor}
+            fill={def.stroke ? 'none' : usePathFills ? p.fill : iconColor}
             fillRule={p.fillRule}
+            stroke={def.stroke ? iconColor : undefined}
+            strokeWidth={def.stroke ? (def.strokeWidth ?? 2) : undefined}
+            strokeLinecap={def.stroke ? 'round' : undefined}
+            strokeLinejoin={def.stroke ? 'round' : undefined}
           />
         ))}
       </Svg>
