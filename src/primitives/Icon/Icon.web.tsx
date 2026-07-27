@@ -137,7 +137,11 @@ export function Icon({
         viewBox={def.viewBox}
         width={iconSize}
         height={iconSize}
-        fill="currentColor"
+        fill={def.stroke ? 'none' : 'currentColor'}
+        stroke={def.stroke ? 'currentColor' : undefined}
+        strokeWidth={def.stroke ? (def.strokeWidth ?? 2) : undefined}
+        strokeLinecap={def.stroke ? 'round' : undefined}
+        strokeLinejoin={def.stroke ? 'round' : undefined}
         className={className}
         style={combinedStyle}
         id={id}
@@ -148,7 +152,7 @@ export function Icon({
           <path
             key={i}
             d={p.d}
-            fill={usePathFills ? p.fill : 'currentColor'}
+            fill={def.stroke ? 'none' : usePathFills ? p.fill : 'currentColor'}
             fillRule={p.fillRule}
           />
         ))}

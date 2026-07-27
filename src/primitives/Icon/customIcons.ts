@@ -19,10 +19,31 @@ export interface CustomIconDef {
    * render in the current text color (neutral/monochrome mode).
    */
   colored?: boolean;
+  /**
+   * When true, paths are rendered as strokes (like Tabler outline icons) instead
+   * of filled shapes: fill=none, stroke=current color, round caps/joins. Use this
+   * for line-drawn glyphs (checkmarks, arrows) authored against a 24 viewBox.
+   * strokeWidth is in viewBox units (default 2, matching Tabler's outline default).
+   */
+  stroke?: boolean;
+  strokeWidth?: number;
   paths: Array<{ d: string; fill?: string; fillRule?: 'nonzero' | 'evenodd' }>;
 }
 
 export const customIcons: Record<string, CustomIconDef> = {
+  // Read-receipt double-check. Redesigned so the two ticks sit closer together
+  // than two overlapped Tabler checks. Each tick spans the same 15 viewBox units
+  // as Tabler's `check` (5→20 vs 1.43→16.43), so at any size a tick renders at the
+  // same scale as a single `<Icon name="check">`. Stroke-based, matching Tabler.
+  'checks-custom': {
+    viewBox: '0 0 24 24',
+    stroke: true,
+    strokeWidth: 2,
+    paths: [
+      { d: 'M1.42986 12L6.42986 17L16.4299 7' },
+      { d: 'M11.4833 16.2291L12.2542 17L22.2542 7' },
+    ],
+  },
   farcaster: {
     viewBox: '-4.16 -4.16 40.32 40.32',
     paths: [

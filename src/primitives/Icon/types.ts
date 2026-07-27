@@ -277,7 +277,8 @@ export type IconName =
   | 'quilibrium'
   | 'quorum'
   | 'apex-star'
-  | 'qns';
+  | 'qns'
+  | 'checks-custom';
 
 export type IconSize =
   | 'xs'
