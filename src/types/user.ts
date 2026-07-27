@@ -39,6 +39,30 @@ export type UserNote = {
   updatedAt: number;
 };
 
+/**
+ * Per-conversation DM setting overrides, synced across a user's devices via the
+ * encrypted `UserConfig` blob. Each field is optional; an absent field means
+ * "inherit the global setting / default" for that conversation.
+ *
+ * Merge is per-entry last-write-wins keyed by `updatedAt` (see
+ * `mergeConversationSettings`). A reset-to-global writes an entry with no
+ * override fields (just `updatedAt`), which acts as its own tombstone: a newer
+ * empty entry beats an older non-empty one, so a reset propagates across devices
+ * without a separate deletion-tracking array.
+ */
+export type ConversationSettingOverrides = {
+  /** Keep previous versions of edited messages in this conversation. */
+  saveEditHistory?: boolean;
+  /** Always sign messages in this conversation (non-repudiable). */
+  isRepudiable?: boolean;
+  /** Delivery-receipt override for this conversation. */
+  deliveryReceipts?: boolean;
+  /** Read-receipt override for this conversation (requires delivery on). */
+  readReceipts?: boolean;
+  /** ms epoch of the last change to this entry; drives last-write-wins merge. */
+  updatedAt?: number;
+};
+
 export type UserConfig = {
   address: string;
   spaceIds: string[];
@@ -98,6 +122,13 @@ export type UserConfig = {
   hideMutedSpacesFromSidebar?: boolean;
   favoriteDMs?: string[];
   mutedConversations?: string[];
+  // Per-conversation DM setting overrides (save-edit-history, always-sign,
+  // delivery/read receipts), keyed by conversationId. Synced cross-device;
+  // per-entry last-write-wins via each entry's `updatedAt`. See
+  // `mergeConversationSettings` / `setConversationSetting` in utils.
+  conversationSettings?: {
+    [conversationId: string]: ConversationSettingOverrides;
+  };
   // Personal "block user": addresses whose messages the viewer hides from their
   // own stream, scoped per space. This is a viewer-side hide (no moderation
   // effect, no permission needed) — distinct from the role-gated moderation mute
@@ -145,4 +176,27 @@ export type SpaceMember = UserProfile & {
   user_address?: string;
   /** Alias for `profile_image` - matches SDK wire format (channel.UserProfile) */
   user_icon?: string;
+};
+
+/**
+ * An additional per-device signing key admitted for a space member, proven by
+ * a statement signed with the member's master identity key. Stored separately
+ * from the member row: it NEVER writes the join-bound `inbox_address` (which
+ * stays the sole authority of the verified join). One row per device per space.
+ * See utils/deviceKeys.ts for how these are minted, verified, and resolved.
+ */
+export type SpaceMemberDevice = {
+  spaceId: string;
+  /** The member this key belongs to (their master user address). */
+  userAddress: string;
+  /** The device's DM inbox_address — attribution label + revocation handle. Self-asserted (not verified against the hub registration at receive). */
+  deviceInboxAddress: string;
+  /** Reverse-lookup key: deriveInboxAddress(spaceKeyPublicKey). Matched against a message's signing-key address. */
+  inboxAddress: string;
+  /** The device's per-space ed448 signing public key (hex). */
+  spaceKeyPublicKey: string;
+  /** Statement timestamp (ms) — last-write-wins ordering against revocations. */
+  timestamp: number;
+  /** true once a revoke-device tombstone with timestamp >= this arrived. Kept, never deleted. */
+  revoked?: boolean;
 };

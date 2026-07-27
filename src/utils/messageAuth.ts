@@ -12,6 +12,7 @@ import type {
   RemoveMessage,
   Space,
   SpaceMember,
+  SpaceMemberDevice,
 } from '../types';
 
 /**
@@ -106,19 +107,48 @@ export type VerifiedSender = string & { readonly __verifiedSender: unique symbol
  * REVERSE lookup (key → inbox address → member), never a lookup by claimed
  * senderId: that shape is bypassable when the claimed member's row is missing
  * locally. No match (or kicked member) → null → callers must fail closed.
+ *
+ * `deviceKeys` is OPTIONAL and additive (older callers keep the two-arg form):
+ * when a message's signing key is not a member's join-bound `inbox_address`, it
+ * may still resolve via a per-device signing key ADMITTED through a
+ * master-signed statement (see utils/deviceKeys.ts). The admission only carries
+ * authority through to a member row that exists and is not kicked — so the
+ * member gate stays fail-closed for both paths, and a revoked admission never
+ * resolves.
  */
 export function resolveVerifiedSender(
   publicKeyHex: string,
-  members: SpaceMember[]
+  members: SpaceMember[],
+  deviceKeys?: SpaceMemberDevice[]
 ): VerifiedSender | null {
   if (!publicKeyHex) return null;
   const inboxAddress = deriveInboxAddress(publicKeyHex);
+
+  // Path 1: the join-bound member row (unchanged behavior).
   const member = members.find(
     (m) => m.inbox_address === inboxAddress && !m.isKicked
   );
-  if (!member) return null;
-  const address = member.address || member.user_address;
-  return address ? (address as VerifiedSender) : null;
+  if (member) {
+    const address = member.address || member.user_address;
+    return address ? (address as VerifiedSender) : null;
+  }
+
+  // Path 2: an admitted per-device signing key → its owning member row.
+  if (deviceKeys?.length) {
+    const device = deviceKeys.find(
+      (d) => d.inboxAddress === inboxAddress && !d.revoked
+    );
+    if (device) {
+      const owner = members.find(
+        (m) =>
+          (m.address || m.user_address) === device.userAddress && !m.isKicked
+      );
+      const address = owner?.address || owner?.user_address;
+      if (address) return address as VerifiedSender;
+    }
+  }
+
+  return null;
 }
 
 export interface ControlMessageVerdict {

@@ -69,6 +69,7 @@ export type {
   FarcasterLink,
   PublicProfile,
   SpaceMember,
+  SpaceMemberDevice,
 } from './user';
 
 // Bookmark types
