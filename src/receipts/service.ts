@@ -27,6 +27,26 @@ type ReadHighWaterMark = { messageId: string; timestamp: number };
  */
 export type ReadFlushPayload = ReadHighWaterMark & { messageIds: string[] };
 
+/**
+ * Coerce a peer-supplied `messageIds` to a real string[], or drop it.
+ *
+ * This value arrives as untrusted JSON from the other device, so it may be any
+ * shape at all. It must never reach `new Set(...)` unchecked: an array-LIKE
+ * object (`{length: 1, "0": "x"}`) is valid JSON and passes a truthy `.length`
+ * test, but is not iterable, and the resulting TypeError propagates out of the
+ * inbound message handler on paths that do not catch it — taking the whole ack
+ * down with it, including the perfectly good high-water mark beside it.
+ *
+ * Returning undefined degrades to mark-only, which is exactly the behaviour of
+ * a peer that never sent ids. Mirrors why isReadAckTimestampValid exists.
+ */
+function sanitizeReadMessageIds(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+
+  const ids = value.filter((id): id is string => typeof id === 'string' && id.length > 0);
+  return ids.length > 0 ? ids : undefined;
+}
+
 export interface ReceiptServiceOptions {
   /** Called when delivery ack buffer needs to be flushed */
   onFlush: (address: string, messageIds: string[]) => void;
@@ -127,10 +147,15 @@ export class ReceiptService {
     upToMessageId: string,
     upToTimestamp: number,
     conversationAddress: string,
-    messageIds?: string[],
+    messageIds?: unknown,
   ): void {
     if (this.options.onReadAckProcessed) {
-      this.options.onReadAckProcessed(upToMessageId, upToTimestamp, conversationAddress, messageIds);
+      this.options.onReadAckProcessed(
+        upToMessageId,
+        upToTimestamp,
+        conversationAddress,
+        sanitizeReadMessageIds(messageIds),
+      );
     }
   }
 
