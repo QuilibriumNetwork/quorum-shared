@@ -95,6 +95,76 @@ describe('resolveReadAckPatch', () => {
   });
 });
 
+describe('resolveReadAckPatch with named messageIds', () => {
+  const named = (ids: string[], over: Record<string, unknown> = {}) => ({
+    upToMessageId: 'hwm',
+    upToTimestamp: 500,
+    now: NOW,
+    readMessageIds: new Set(ids),
+    ...over,
+  });
+
+  it('settles delivered+read on a named message whose delivery ack was lost', () => {
+    // The capability the named set adds: without it only the HWM self-proves,
+    // so this message would sit blank until a delivery ack that never comes.
+    const m = msg({ messageId: 'm1', createdDate: 400 });
+    expect(resolveReadAckPatch(m, named(['m1']))).toEqual({ readAt: NOW, deliveredAt: NOW });
+  });
+
+  it('still refuses an UNNAMED undelivered message in range — the gate holds', () => {
+    const lost = msg({ messageId: 'lost', createdDate: 400 });
+    expect(resolveReadAckPatch(lost, named(['m1', 'm2']))).toBeNull();
+  });
+
+  it('does not invent a delivery for a named message that is already delivered', () => {
+    const m = msg({ messageId: 'm1', createdDate: 400, deliveredAt: 900 });
+    expect(resolveReadAckPatch(m, named(['m1']))).toEqual({ readAt: NOW });
+  });
+
+  it('is idempotent for a named message already delivered and read', () => {
+    const m = msg({ messageId: 'm1', createdDate: 400, deliveredAt: 900, readAt: 950 });
+    expect(resolveReadAckPatch(m, named(['m1']))).toBeNull();
+  });
+
+  it('honours a named message older than the high-water timestamp', () => {
+    // Out-of-order reads land in the set without moving the mark.
+    const m = msg({ messageId: 'old', createdDate: 100 });
+    expect(resolveReadAckPatch(m, named(['old']))).toEqual({ readAt: NOW, deliveredAt: NOW });
+  });
+
+  it('behaves exactly as before when the peer names nothing (old build)', () => {
+    const lost = msg({ messageId: 'lost', createdDate: 400 });
+    const delivered = msg({ messageId: 'ok', createdDate: 400, deliveredAt: 900 });
+    const hwm = msg({ messageId: 'hwm', createdDate: 500 });
+    const legacy = { upToMessageId: 'hwm', upToTimestamp: 500, now: NOW };
+
+    expect(resolveReadAckPatch(lost, legacy)).toBeNull();
+    expect(resolveReadAckPatch(delivered, legacy)).toEqual({ readAt: NOW });
+    expect(resolveReadAckPatch(hwm, legacy)).toEqual({ readAt: NOW, deliveredAt: NOW });
+  });
+
+  it('repairs the reported-bug conversation when the reader names what it read', () => {
+    // Same ten-message setup as the regression above: #4 and #7 lost. With the
+    // ids named, both recover instead of staying blank forever.
+    const conversation = Array.from({ length: 10 }, (_, i) => {
+      const n = i + 1;
+      const lost = n === 4 || n === 7;
+      return msg({ messageId: `m${n}`, createdDate: n * 100, deliveredAt: lost ? undefined : 900 });
+    });
+    const ctx = {
+      upToMessageId: 'm10',
+      upToTimestamp: 1000,
+      now: NOW,
+      readMessageIds: new Set(conversation.map((m) => m.messageId)),
+    };
+
+    const patched = conversation.map((m) => resolveReadAckPatch(m, ctx));
+    expect(patched.every((p) => p?.readAt === NOW)).toBe(true);
+    expect(patched[3]).toEqual({ readAt: NOW, deliveredAt: NOW });
+    expect(patched[6]).toEqual({ readAt: NOW, deliveredAt: NOW });
+  });
+});
+
 describe('resolveDeliveryAckPatch', () => {
   it('stamps deliveredAt when no read ack has arrived yet', () => {
     const m = msg({ messageId: 'm1', createdDate: 400 });
