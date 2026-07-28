@@ -148,6 +148,55 @@ describe('ReceiptService', () => {
       service.onReadAckReceived('msg-5', 5000, 'alice', ['msg-3', 'msg-5']);
       expect(mockReadAckProcessed).toHaveBeenCalledWith('msg-5', 5000, 'alice', ['msg-3', 'msg-5']);
     });
+
+    describe('hostile or malformed messageIds from the peer', () => {
+      let processed: ReturnType<typeof vi.fn>;
+
+      beforeEach(() => {
+        processed = vi.fn();
+        service = new ReceiptService({
+          onFlush: mockFlushCallback as never,
+          onReadAckProcessed: processed as never,
+        });
+      });
+
+      const idsSeenFor = (value: unknown) => {
+        service.onReadAckReceived('msg-5', 5000, 'alice', value as never);
+        return processed.mock.calls[0][3];
+      };
+
+      it('drops an array-LIKE object without throwing, keeping the mark', () => {
+        // Valid JSON, truthy .length, NOT iterable — new Set() would throw and
+        // take the whole ack down, mark included.
+        expect(() => idsSeenFor({ length: 1, '0': 'msg-1' })).not.toThrow();
+        expect(processed).toHaveBeenCalledWith('msg-5', 5000, 'alice', undefined);
+      });
+
+      it.each([
+        ['a string', 'msg-1'],
+        ['a number', 42],
+        ['null', null],
+        ['a nested object', { messageIds: ['msg-1'] }],
+        ['a boolean', true],
+      ])('drops %s and degrades to mark-only', (_label, value) => {
+        expect(idsSeenFor(value)).toBeUndefined();
+      });
+
+      it('keeps the string entries and discards the rest of a mixed array', () => {
+        expect(idsSeenFor(['msg-1', 42, null, 'msg-2', undefined, { a: 1 }, ''])).toEqual([
+          'msg-1',
+          'msg-2',
+        ]);
+      });
+
+      it('treats an array with no usable ids as absent', () => {
+        expect(idsSeenFor([null, 42, ''])).toBeUndefined();
+      });
+
+      it('leaves a well-formed array untouched', () => {
+        expect(idsSeenFor(['msg-1', 'msg-2'])).toEqual(['msg-1', 'msg-2']);
+      });
+    });
   });
 });
 
