@@ -136,9 +136,67 @@ describe('ReceiptService', () => {
         onReadAckProcessed: mockReadAckProcessed as never,
       });
       service.onReadAckReceived('msg-5', 5000, 'alice');
-      expect(mockReadAckProcessed).toHaveBeenCalledWith('msg-5', 5000, 'alice');
+      expect(mockReadAckProcessed).toHaveBeenCalledWith('msg-5', 5000, 'alice', undefined);
     });
 
+    it('passes through named messageIds when the peer sent them', () => {
+      const mockReadAckProcessed = vi.fn();
+      service = new ReceiptService({
+        onFlush: mockFlushCallback as never,
+        onReadAckProcessed: mockReadAckProcessed as never,
+      });
+      service.onReadAckReceived('msg-5', 5000, 'alice', ['msg-3', 'msg-5']);
+      expect(mockReadAckProcessed).toHaveBeenCalledWith('msg-5', 5000, 'alice', ['msg-3', 'msg-5']);
+    });
+
+    describe('hostile or malformed messageIds from the peer', () => {
+      let processed: ReturnType<typeof vi.fn>;
+
+      beforeEach(() => {
+        processed = vi.fn();
+        service = new ReceiptService({
+          onFlush: mockFlushCallback as never,
+          onReadAckProcessed: processed as never,
+        });
+      });
+
+      const idsSeenFor = (value: unknown) => {
+        service.onReadAckReceived('msg-5', 5000, 'alice', value as never);
+        return processed.mock.calls[0][3];
+      };
+
+      it('drops an array-LIKE object without throwing, keeping the mark', () => {
+        // Valid JSON, truthy .length, NOT iterable — new Set() would throw and
+        // take the whole ack down, mark included.
+        expect(() => idsSeenFor({ length: 1, '0': 'msg-1' })).not.toThrow();
+        expect(processed).toHaveBeenCalledWith('msg-5', 5000, 'alice', undefined);
+      });
+
+      it.each([
+        ['a string', 'msg-1'],
+        ['a number', 42],
+        ['null', null],
+        ['a nested object', { messageIds: ['msg-1'] }],
+        ['a boolean', true],
+      ])('drops %s and degrades to mark-only', (_label, value) => {
+        expect(idsSeenFor(value)).toBeUndefined();
+      });
+
+      it('keeps the string entries and discards the rest of a mixed array', () => {
+        expect(idsSeenFor(['msg-1', 42, null, 'msg-2', undefined, { a: 1 }, ''])).toEqual([
+          'msg-1',
+          'msg-2',
+        ]);
+      });
+
+      it('treats an array with no usable ids as absent', () => {
+        expect(idsSeenFor([null, 42, ''])).toBeUndefined();
+      });
+
+      it('leaves a well-formed array untouched', () => {
+        expect(idsSeenFor(['msg-1', 'msg-2'])).toEqual(['msg-1', 'msg-2']);
+      });
+    });
   });
 });
 
@@ -166,28 +224,70 @@ describe('Read receipt buffering', () => {
     it('stores high-water mark for an address', () => {
       service.onMessageRead('alice', 'msg-1', 1000);
       const result = service.flushReadForPiggyback('alice');
-      expect(result).toEqual({ messageId: 'msg-1', timestamp: 1000 });
+      expect(result).toEqual({ messageId: 'msg-1', timestamp: 1000, messageIds: ['msg-1'] });
     });
 
     it('updates high-water mark when higher timestamp arrives', () => {
       service.onMessageRead('alice', 'msg-1', 1000);
       service.onMessageRead('alice', 'msg-2', 2000);
       const result = service.flushReadForPiggyback('alice');
-      expect(result).toEqual({ messageId: 'msg-2', timestamp: 2000 });
+      expect(result).toEqual({
+        messageId: 'msg-2',
+        timestamp: 2000,
+        messageIds: ['msg-1', 'msg-2'],
+      });
     });
 
     it('ignores lower timestamp than current high-water mark', () => {
       service.onMessageRead('alice', 'msg-2', 2000);
       service.onMessageRead('alice', 'msg-1', 1000);
       const result = service.flushReadForPiggyback('alice');
-      expect(result).toEqual({ messageId: 'msg-2', timestamp: 2000 });
+      // The mark does not move backwards, but the older id was still read, so
+      // it is named — that is what proves it arrived.
+      expect(result).toEqual({
+        messageId: 'msg-2',
+        timestamp: 2000,
+        messageIds: ['msg-2', 'msg-1'],
+      });
     });
 
     it('tracks separately per address', () => {
       service.onMessageRead('alice', 'msg-1', 1000);
       service.onMessageRead('bob', 'msg-2', 2000);
-      expect(service.flushReadForPiggyback('alice')).toEqual({ messageId: 'msg-1', timestamp: 1000 });
-      expect(service.flushReadForPiggyback('bob')).toEqual({ messageId: 'msg-2', timestamp: 2000 });
+      expect(service.flushReadForPiggyback('alice')).toEqual({
+        messageId: 'msg-1',
+        timestamp: 1000,
+        messageIds: ['msg-1'],
+      });
+      expect(service.flushReadForPiggyback('bob')).toEqual({
+        messageId: 'msg-2',
+        timestamp: 2000,
+        messageIds: ['msg-2'],
+      });
+    });
+
+    it('accumulates every id read in the window, not just the mark', () => {
+      service.onMessageRead('alice', 'msg-1', 1000);
+      service.onMessageRead('alice', 'msg-2', 2000);
+      service.onMessageRead('alice', 'msg-3', 3000);
+      expect(service.flushReadForPiggyback('alice')?.messageIds).toEqual([
+        'msg-1',
+        'msg-2',
+        'msg-3',
+      ]);
+    });
+
+    it('deduplicates a message read twice', () => {
+      service.onMessageRead('alice', 'msg-1', 1000);
+      service.onMessageRead('alice', 'msg-1', 1000);
+      expect(service.flushReadForPiggyback('alice')?.messageIds).toEqual(['msg-1']);
+    });
+
+    it('does not carry ids across flushes', () => {
+      service.onMessageRead('alice', 'msg-1', 1000);
+      service.flushReadForPiggyback('alice');
+      service.onMessageRead('alice', 'msg-2', 2000);
+      expect(service.flushReadForPiggyback('alice')?.messageIds).toEqual(['msg-2']);
     });
   });
 
@@ -209,7 +309,11 @@ describe('Read receipt buffering', () => {
     it('calls onReadFlush after 5 seconds if no piggyback', () => {
       service.onMessageRead('alice', 'msg-1', 1000);
       vi.advanceTimersByTime(5000);
-      expect(mockReadFlushCallback).toHaveBeenCalledWith('alice', { messageId: 'msg-1', timestamp: 1000 });
+      expect(mockReadFlushCallback).toHaveBeenCalledWith('alice', {
+        messageId: 'msg-1',
+        timestamp: 1000,
+        messageIds: ['msg-1'],
+      });
     });
 
     it('does not call onReadFlush before 5 seconds', () => {
@@ -225,7 +329,11 @@ describe('Read receipt buffering', () => {
       vi.advanceTimersByTime(3000);
       expect(mockReadFlushCallback).not.toHaveBeenCalled();
       vi.advanceTimersByTime(2000);
-      expect(mockReadFlushCallback).toHaveBeenCalledWith('alice', { messageId: 'msg-2', timestamp: 2000 });
+      expect(mockReadFlushCallback).toHaveBeenCalledWith('alice', {
+        messageId: 'msg-2',
+        timestamp: 2000,
+        messageIds: ['msg-1', 'msg-2'],
+      });
     });
 
     it('does NOT reset timer when lower timestamp arrives', () => {
@@ -233,7 +341,13 @@ describe('Read receipt buffering', () => {
       vi.advanceTimersByTime(3000);
       service.onMessageRead('alice', 'msg-1', 1000);
       vi.advanceTimersByTime(2000);
-      expect(mockReadFlushCallback).toHaveBeenCalledWith('alice', { messageId: 'msg-2', timestamp: 2000 });
+      // Fires on the original schedule, and the out-of-order id still rides along
+      // — the early return relies on this flush already being pending.
+      expect(mockReadFlushCallback).toHaveBeenCalledWith('alice', {
+        messageId: 'msg-2',
+        timestamp: 2000,
+        messageIds: ['msg-2', 'msg-1'],
+      });
     });
   });
 
@@ -244,8 +358,16 @@ describe('Read receipt buffering', () => {
       service.onMessageRead('bob', 'msg-3', 3000);
       service.flushAll();
       expect(mockFlushCallback).toHaveBeenCalledWith('alice', ['msg-1']);
-      expect(mockReadFlushCallback).toHaveBeenCalledWith('alice', { messageId: 'msg-2', timestamp: 2000 });
-      expect(mockReadFlushCallback).toHaveBeenCalledWith('bob', { messageId: 'msg-3', timestamp: 3000 });
+      expect(mockReadFlushCallback).toHaveBeenCalledWith('alice', {
+        messageId: 'msg-2',
+        timestamp: 2000,
+        messageIds: ['msg-2'],
+      });
+      expect(mockReadFlushCallback).toHaveBeenCalledWith('bob', {
+        messageId: 'msg-3',
+        timestamp: 3000,
+        messageIds: ['msg-3'],
+      });
     });
 
     it('clears read timers after flushAll', () => {
@@ -362,6 +484,10 @@ describe('Edge cases', () => {
     service.onMessageRead('alice', 'msg-1', 1000);
     service.onMessageRead('alice', 'msg-2', 1000);
     const result = service.flushReadForPiggyback('alice');
-    expect(result).toEqual({ messageId: 'msg-1', timestamp: 1000 });
+    expect(result).toEqual({
+      messageId: 'msg-1',
+      timestamp: 1000,
+      messageIds: ['msg-1', 'msg-2'],
+    });
   });
 });

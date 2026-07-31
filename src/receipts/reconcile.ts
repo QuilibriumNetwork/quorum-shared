@@ -21,6 +21,13 @@
  * upgrade. Instead the read ack advances a per-conversation watermark, and the
  * delivery ack completes the upgrade for anything at or below it. Whichever
  * ack lands second finishes the job.
+ *
+ * A read ack may also NAME the messages it read (`readMessageIds`). A named id
+ * is self-proving — you cannot read what never arrived — so it settles ✓✓ on
+ * the spot, including for a message whose delivery ack was lost. That does not
+ * retire the watermark: naming is per-ack and dies with a dropped ack, while
+ * the watermark is cumulative and so repairs one. They cover different
+ * failures, and both are kept deliberately.
  */
 
 /** Tolerated clock skew when validating an inbound read-ack timestamp. */
@@ -48,6 +55,13 @@ export type ReadAckContext = {
   upToMessageId: string;
   upToTimestamp: number;
   now: number;
+  /**
+   * Ids the peer explicitly named as read, when their build sends them. Each is
+   * self-proving on the same grounds as the high-water mark, so this completes
+   * ✓✓ for a message whose delivery ack was lost. Absent from older peers, in
+   * which case only the high-water mark is self-proving, exactly as before.
+   */
+  readMessageIds?: ReadonlySet<string>;
 };
 
 export type DeliveryAckContext = {
@@ -77,15 +91,20 @@ export function resolveReadAckPatch(
   msg: ReceiptMessageView,
   ctx: ReadAckContext,
 ): ReceiptPatch | null {
-  const isHighWaterMark = msg.messageId === ctx.upToMessageId;
+  // Named = the peer says it read THIS message, which proves it arrived. The
+  // high-water mark always qualifies; newer peers also name the rest explicitly.
+  const isNamed =
+    msg.messageId === ctx.upToMessageId || ctx.readMessageIds?.has(msg.messageId) === true;
   const covered = msg.createdDate <= ctx.upToTimestamp && msg.deliveredAt !== undefined;
 
-  // The HWM message is self-proving; everything else needs a real delivery ack.
-  if (!isHighWaterMark && !covered) return null;
+  // A named message is self-proving; everything else needs a real delivery ack.
+  // Falling below the high-water timestamp is NOT proof — that inference is
+  // what marked lost messages delivered before the truthfulness fix.
+  if (!isNamed && !covered) return null;
 
   const patch: ReceiptPatch = {};
   if (msg.readAt === undefined) patch.readAt = ctx.now;
-  if (isHighWaterMark && msg.deliveredAt === undefined) patch.deliveredAt = ctx.now;
+  if (isNamed && msg.deliveredAt === undefined) patch.deliveredAt = ctx.now;
 
   return patch.readAt === undefined && patch.deliveredAt === undefined ? null : patch;
 }
