@@ -17,6 +17,7 @@ import type {
   StateChangeHandler,
   ErrorHandler,
 } from './websocket';
+import { SendRetention } from './send-retention';
 import { logger } from '../utils/logger';
 
 /**
@@ -49,6 +50,11 @@ export class RNWebSocketClient implements WebSocketClient {
   // would silently drop the envelope after the ratchet had already moved
   // past it, leaving the recipient permanently missing that message.
   private pendingEnvelopes: string[] = [];
+  // Frames already handed to ws.send(). A successful send only proves the
+  // local buffer accepted the bytes, so they are held until the socket has
+  // either outlived the retention window or died — in which case they go back
+  // on the queue. See send-retention.ts for the measurement behind this.
+  private sendRetention: SendRetention;
   private isProcessing = false;
   private processIntervalId: ReturnType<typeof setInterval> | null = null;
 
@@ -63,6 +69,7 @@ export class RNWebSocketClient implements WebSocketClient {
     this.reconnectInterval = options.reconnectInterval ?? 1000;
     this.maxReconnectAttempts = options.maxReconnectAttempts ?? Infinity;
     this.queueProcessInterval = options.queueProcessInterval ?? 1000;
+    this.sendRetention = new SendRetention(options.sendRetention);
   }
 
   get state(): WebSocketConnectionState {
@@ -118,6 +125,10 @@ export class RNWebSocketClient implements WebSocketClient {
           this.setState('connected');
           this.startQueueProcessing();
 
+          // Put back anything the previous socket may have swallowed, before
+          // the drain below runs.
+          this.replayRetainedFrames();
+
           // Call resubscribe handler to restore subscriptions
           if (this.resubscribeHandler) {
             this.resubscribeHandler().catch((error) => {
@@ -131,6 +142,9 @@ export class RNWebSocketClient implements WebSocketClient {
         };
 
         this.ws.onclose = () => {
+          // Anchor retention on the death of the socket, not on the reopen, so
+          // a slow reconnect cannot eat the window.
+          this.sendRetention.sealOnClose(Date.now());
           this.setState('disconnected');
           this.stopQueueProcessing();
 
@@ -251,6 +265,32 @@ export class RNWebSocketClient implements WebSocketClient {
     };
   }
 
+  /**
+   * Re-queue frames written into a socket that died before anything confirmed
+   * them. Runs on every open.
+   *
+   * They go to the FRONT of pendingEnvelopes: that queue holds frames caught
+   * mid-batch at the moment of failure, which are chronologically newer than
+   * anything retained, and the recipient must see frames in ratchet order.
+   */
+  private replayRetainedFrames(): void {
+    const { frames, dropped } = this.sendRetention.takeForReplay(Date.now(), this.pendingEnvelopes);
+
+    if (frames.length === 0) {
+      return;
+    }
+
+    this.pendingEnvelopes.unshift(...frames);
+
+    // console rather than logger: this is the line a field capture is read for,
+    // and it must survive a production build. It fires only on a reconnect that
+    // actually rescued something.
+    console.warn(
+      `[WS-retain] replaying ${frames.length} frame(s) from the previous connection` +
+        (dropped > 0 ? ` (gave up on ${dropped} past the retention limits)` : '')
+    );
+  }
+
   private startQueueProcessing(): void {
     if (this.processIntervalId === null) {
       this.processIntervalId = setInterval(() => {
@@ -321,12 +361,18 @@ export class RNWebSocketClient implements WebSocketClient {
       //    readyState slipped), the envelope goes back into
       //    pendingEnvelopes so the next processQueues pass retries it
       //    rather than silently losing it.
+      //
+      // A send that does not throw is retained (see send-retention.ts) rather
+      // than considered delivered, so a socket that was already dead when we
+      // wrote to it does not take the frame down with it. Control frames sent
+      // via send() are not retained — resubscribe re-issues those itself.
       if (this.ws?.readyState === WebSocket.OPEN) {
         while (this.pendingEnvelopes.length > 0 && this.ws?.readyState === WebSocket.OPEN) {
           const m = this.pendingEnvelopes[0];
           try {
             this.ws.send(m);
             this.pendingEnvelopes.shift();
+            this.sendRetention.retain(m, Date.now());
           } catch (error) {
             console.error('Error flushing pending envelope:', error);
             break;
@@ -349,6 +395,7 @@ export class RNWebSocketClient implements WebSocketClient {
             }
             try {
               this.ws.send(m);
+              this.sendRetention.retain(m, Date.now());
             } catch (error) {
               console.error('Error sending outbound envelope:', error);
               this.pendingEnvelopes.push(m);
