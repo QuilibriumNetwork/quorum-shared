@@ -105,6 +105,8 @@ export interface UnlistenMessage {
 
 // ============ Configuration ============
 
+import type { SendRetentionOptions } from './send-retention';
+
 export interface WebSocketClientOptions {
   /** WebSocket server URL */
   url: string;
@@ -114,6 +116,12 @@ export interface WebSocketClientOptions {
   maxReconnectAttempts?: number;
   /** Queue processing interval (ms). Default: 1000 */
   queueProcessInterval?: number;
+  /**
+   * Send-side durability policy: how long a frame handed to ws.send() is kept
+   * so it can be replayed if that socket turns out to have been dead.
+   * See send-retention.ts. Defaults are tuned for the relay's pong deadline.
+   */
+  sendRetention?: SendRetentionOptions;
 }
 
 // ============ Event Handlers ============
