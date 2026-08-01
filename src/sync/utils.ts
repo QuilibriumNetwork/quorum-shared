@@ -141,8 +141,36 @@ export function computeMemberHash(member: SpaceMember): {
   displayNameHash: string;
   iconHash: string;
 } {
-  const displayNameHash = computeHash(member.display_name || '');
-  const iconHash = computeHash(member.profile_image || '');
+  // Hash the identity that actually RENDERS, which means the override slot
+  // falling back to the global slot — the same precedence the UI applies.
+  //
+  // Hashing only the override slot made this digest blind for most members. The
+  // follow-global work (2026-07-16) deliberately stopped stamping
+  // `display_name` / `profile_image`, so they are empty unless someone set a
+  // real per-space override, and the identity lives in `global_*`. Two clients
+  // that disagreed completely about a member therefore produced IDENTICAL
+  // digests, concluded "in sync", and exchanged nothing — disabling the
+  // receiver-driven reconciliation for exactly the case it exists to fix.
+  //
+  // ⚠️ This hash is compared against a PEER's, so every participant must compute
+  // it identically. Changing what goes in here changes every member's digest, so
+  // the first exchange after deploy legitimately produces a large delta on both
+  // sides — that is the one-time cost of the correction, not a bug.
+  //
+  // Today the only participants are desktop clients: mobile REMOVED its sync
+  // handlers (`quorum-mobile` context/WebSocketContext.tsx ~1298: "'sync-initiate',
+  // 'sync-members', 'sync-messages', 'sync-manifest', 'sync-delta' — sync handlers
+  // removed") and catches up via hub-log replay instead. So there is no
+  // cross-platform staging requirement here. If mobile ever rejoins this
+  // protocol, it must adopt this same precedence — and note it stores the global
+  // avatar as `global_profile_image`, so it would need mapping to
+  // `global_user_icon` on the way in.
+  const displayNameHash = computeHash(
+    member.display_name || member.global_display_name || ''
+  );
+  const iconHash = computeHash(
+    member.profile_image || member.global_user_icon || ''
+  );
   return { displayNameHash, iconHash };
 }
 

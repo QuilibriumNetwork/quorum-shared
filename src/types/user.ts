@@ -176,6 +176,29 @@ export type SpaceMember = UserProfile & {
   user_address?: string;
   /** Alias for `profile_image` - matches SDK wire format (channel.UserProfile) */
   user_icon?: string;
+
+  // ── GLOBAL identity slot (two-slot model) ────────────────────────────────
+  // The member's current GLOBAL identity, stored separately from the per-space
+  // OVERRIDE fields above (`display_name` / `profile_image`). Render precedence
+  // is override → global → public profile → address.
+  //
+  // These matter more than they look: the follow-global work (2026-07-16)
+  // deliberately stopped stamping the override fields, so for most members the
+  // override slot is EMPTY and the global slot is the identity that renders.
+  // Anything that reads a member's identity — including the sync digest — must
+  // look here, or it sees nothing for the common case.
+  //
+  // Previously carried through casts on both platforms; declared here so the
+  // sync layer can hash them. (Closes the follow-up noted in the
+  // identity-resolution doc.)
+  global_display_name?: string;
+  /** Desktop storage name. Mobile stores the same value as `global_profile_image`. */
+  global_user_icon?: string;
+  global_bio?: string;
+  /** Per-slot last-write-wins guard for the OVERRIDE fields. */
+  profileTimestamp?: number;
+  /** Per-slot last-write-wins guard for the GLOBAL slot. */
+  globalProfileTimestamp?: number;
 };
 
 /**
