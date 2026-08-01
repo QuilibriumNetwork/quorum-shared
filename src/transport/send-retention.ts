@@ -88,15 +88,48 @@ export interface SendRetentionOptions {
   maxReplays?: number;
 }
 
+/**
+ * Why retained frames were given up on, split by cause.
+ *
+ * Reported separately because the three causes mean opposite things, and a
+ * single total is unreadable without them — a large `aged` count is the healthy
+ * steady state, while a non-zero `exhausted` or `overCap` is a warning. Reading
+ * a combined number as if it were all loss is a mistake that has been made.
+ */
+export interface SendRetentionDropCauses {
+  /**
+   * Sent more than `maxAgeMs` before the socket died.
+   *
+   * **Expected, and normally benign.** A frame that old went out over a
+   * connection the relay was still acknowledging, so it almost certainly
+   * arrived. On any long-lived connection most retained frames end up here, so
+   * this count tracks how busy the socket was, not how much was lost.
+   */
+  aged: number;
+  /**
+   * Still inside the window, but already replayed `maxReplays` times.
+   *
+   * **A real loss signal.** These frames were worth retrying and were not
+   * retried, because a flapping link kept killing the sockets they landed on.
+   */
+  exhausted: number;
+  /**
+   * Evicted because the buffer was already holding `maxFrames`.
+   *
+   * **A real loss signal**, and a sizing one: it means frames were produced
+   * faster than the cap allows for, so `maxFrames` is too low for this load.
+   */
+  overCap: number;
+  /** `aged + exhausted + overCap`. */
+  total: number;
+}
+
 /** Outcome of {@link SendRetention.takeForReplay}. */
 export interface SendRetentionReplay {
   /** Frames to re-queue, in the order they were originally sent. */
   frames: string[];
-  /**
-   * Frames given up on: sent too long before the socket died, over the frame
-   * cap, or out of replay attempts.
-   */
-  dropped: number;
+  /** Frames given up on, split by cause. See {@link SendRetentionDropCauses}. */
+  dropped: SendRetentionDropCauses;
 }
 
 interface RetainedFrame {
@@ -129,8 +162,8 @@ export class SendRetention {
   private live: RetainedFrame[] = [];
   /** Frames from a socket that has since closed, waiting for the next open. */
   private sealed: RetainedFrame[] = [];
-  /** Discarded frames since the last take, reported for diagnostics. */
-  private discarded = 0;
+  /** Discarded frames since the last take, by cause. Reported for diagnostics. */
+  private discarded = { aged: 0, exhausted: 0, overCap: 0 };
   /**
    * Replay counts for frames handed back but not yet re-sent. Consumed by the
    * matching `retain`, so it holds at most the frames of one in-flight replay.
@@ -153,7 +186,12 @@ export class SendRetention {
 
     this.live.push({ frame, sentAt: now, replays });
     if (this.live.length > this.maxFrames) {
-      this.live.splice(0, this.live.length - this.maxFrames);
+      // Counted, unlike before: frames evicted here are exactly as lost as the
+      // ones the seal-time cap drops, and leaving them out understated the only
+      // number that says "the cap is too small for this load".
+      const overflow = this.live.length - this.maxFrames;
+      this.discarded.overCap += overflow;
+      this.live.splice(0, overflow);
     }
   }
 
@@ -172,17 +210,24 @@ export class SendRetention {
 
     const cutoff = closedAt - this.maxAgeMs;
     for (const entry of this.live) {
-      if (entry.sentAt >= cutoff && entry.replays < this.maxReplays) {
-        this.sealed.push(entry);
+      // Age is tested first, and a frame that fails it is never reported as
+      // `exhausted` even when it is also out of attempts. An aged frame went
+      // out over an acknowledged connection, so its attempt count is moot —
+      // and `exhausted` is only meaningful for frames still worth replaying.
+      if (entry.sentAt < cutoff) {
+        this.discarded.aged++;
+      } else if (entry.replays >= this.maxReplays) {
+        this.discarded.exhausted++;
       } else {
-        this.discarded++;
+        this.sealed.push(entry);
       }
     }
     this.live = [];
 
     if (this.sealed.length > this.maxFrames) {
-      this.discarded += this.sealed.length - this.maxFrames;
-      this.sealed.splice(0, this.sealed.length - this.maxFrames);
+      const overflow = this.sealed.length - this.maxFrames;
+      this.discarded.overCap += overflow;
+      this.sealed.splice(0, overflow);
     }
   }
 
@@ -210,18 +255,18 @@ export class SendRetention {
       this.replayed.set(entry.frame, entry.replays + 1);
     }
 
-    const dropped = this.discarded;
+    const { aged, exhausted, overCap } = this.discarded;
     this.sealed = [];
-    this.discarded = 0;
+    this.discarded = { aged: 0, exhausted: 0, overCap: 0 };
 
-    return { frames, dropped };
+    return { frames, dropped: { aged, exhausted, overCap, total: aged + exhausted + overCap } };
   }
 
   /** Forget everything. */
   clear(): void {
     this.live = [];
     this.sealed = [];
-    this.discarded = 0;
+    this.discarded = { aged: 0, exhausted: 0, overCap: 0 };
     this.replayed.clear();
   }
 

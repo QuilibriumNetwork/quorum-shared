@@ -248,7 +248,11 @@ export class BrowserWebSocketClient implements WebSocketClient {
   private replayRetainedFrames(): void {
     const { frames, dropped } = this.sendRetention.takeForReplay(Date.now(), this.pendingEnvelopes);
 
-    if (frames.length === 0) {
+    // Aged-out frames are the healthy steady state and are not worth a line on
+    // their own. The other two causes mean frames that were worth retrying were
+    // not retried, so they are reported even when nothing was rescued —
+    // otherwise the only counts that signal real loss are silently discarded.
+    if (frames.length === 0 && dropped.exhausted === 0 && dropped.overCap === 0) {
       return;
     }
 
@@ -256,7 +260,10 @@ export class BrowserWebSocketClient implements WebSocketClient {
 
     console.warn(
       `[WS-retain] replaying ${frames.length} frame(s) from the previous connection` +
-        (dropped > 0 ? ` (gave up on ${dropped} past the retention limits)` : '')
+        (dropped.total > 0
+          ? ` (gave up on ${dropped.total}: ${dropped.aged} aged out,` +
+            ` ${dropped.exhausted} out of replays, ${dropped.overCap} over the buffer cap)`
+          : '')
     );
   }
 

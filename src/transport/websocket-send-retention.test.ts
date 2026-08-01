@@ -229,6 +229,58 @@ describe.each(CLIENTS)('%s send retention', (_name, Client) => {
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('[WS-retain] replaying 1 frame(s)'));
   });
 
+  it('breaks the drop count down by cause', async () => {
+    // A single total cannot say whether a reconnect was the benign steady state
+    // or real loss: aged-out frames went over a connection the relay was still
+    // acknowledging, while the other two causes are frames worth retrying that
+    // were not retried. Reading a combined number as if it were all loss is the
+    // mistake this breakdown exists to prevent.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const c = makeClient({ sendRetention: { maxAgeMs: 100 } });
+    await connect(c);
+    const ws1 = FakeWebSocket.latest();
+
+    c.enqueueOutbound(async () => ['old']);
+    await tick(250); // ages out while the socket is still healthy
+
+    c.enqueueOutbound(async () => ['recent']);
+    await tick(10);
+    await reconnect(ws1);
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'replaying 1 frame(s) from the previous connection ' +
+          '(gave up on 1: 1 aged out, 0 out of replays, 0 over the buffer cap)'
+      )
+    );
+  });
+
+  it('reports frames that ran out of replays even when nothing was rescued', async () => {
+    // An exhausted frame is a loss signal, and it surfaces on exactly the
+    // reconnect that has nothing left to replay — so returning early on an
+    // empty replay set would throw the signal away every time it mattered.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const c = makeClient({ sendRetention: { maxReplays: 1 } });
+    await connect(c);
+    let ws = FakeWebSocket.latest();
+
+    c.enqueueOutbound(async () => ['A']);
+    await tick();
+
+    ws = await reconnect(ws); // replay 1 — the last one allowed
+    expect(ws.sent).toEqual(['A']);
+
+    warn.mockClear();
+    await reconnect(ws);
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'replaying 0 frame(s) from the previous connection ' +
+          '(gave up on 1: 0 aged out, 1 out of replays, 0 over the buffer cap)'
+      )
+    );
+  });
+
   it('stays quiet on a reconnect with nothing to replay', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const c = makeClient();

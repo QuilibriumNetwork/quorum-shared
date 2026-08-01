@@ -26,7 +26,7 @@ describe('SendRetention', () => {
 
     const { frames, dropped } = r.takeForReplay(12_100);
     expect(frames).toEqual(['recent']);
-    expect(dropped).toBe(1);
+    expect(dropped).toEqual({ aged: 1, exhausted: 0, overCap: 0, total: 1 });
   });
 
   it('keeps the full window however long the reconnect takes', () => {
@@ -88,7 +88,7 @@ describe('SendRetention', () => {
     // best information available.
     const { frames, dropped } = r.takeForReplay(21_000);
     expect(frames).toEqual(['fresh']);
-    expect(dropped).toBe(1);
+    expect(dropped).toEqual({ aged: 1, exhausted: 0, overCap: 0, total: 1 });
   });
 
   it('caps the buffer, discarding the oldest frames first', () => {
@@ -100,7 +100,12 @@ describe('SendRetention', () => {
     expect(r.size).toBe(5);
 
     r.sealOnClose(1100);
-    expect(r.takeForReplay(1200).frames).toEqual(['f4', 'f5', 'f6', 'f7', 'f8']);
+    const { frames, dropped } = r.takeForReplay(1200);
+    expect(frames).toEqual(['f4', 'f5', 'f6', 'f7', 'f8']);
+    // Evicted while live, before any close. Reported all the same: these are as
+    // lost as the ones the seal-time cap drops, and going uncounted understated
+    // the only number that says the cap is too small for the load.
+    expect(dropped).toEqual({ aged: 0, exhausted: 0, overCap: 3, total: 3 });
   });
 
   it('caps across connections, counting the overflow as dropped', () => {
@@ -113,14 +118,17 @@ describe('SendRetention', () => {
 
     const { frames, dropped } = r.takeForReplay(1400);
     expect(frames).toEqual(['a4', 'b1', 'b2', 'b3', 'b4']);
-    expect(dropped).toBe(3);
+    expect(dropped).toEqual({ aged: 0, exhausted: 0, overCap: 3, total: 3 });
   });
 
   it('reports nothing to replay when nothing was ever sent', () => {
     const r = new SendRetention(opts);
 
     r.sealOnClose(1000);
-    expect(r.takeForReplay(2000)).toEqual({ frames: [], dropped: 0 });
+    expect(r.takeForReplay(2000)).toEqual({
+      frames: [],
+      dropped: { aged: 0, exhausted: 0, overCap: 0, total: 0 },
+    });
   });
 
   it('clear() forgets both live and sealed frames', () => {
@@ -168,7 +176,29 @@ describe('SendRetention', () => {
     r.sealOnClose(t + 100);
     const { frames, dropped } = r.takeForReplay(t + 200);
     expect(frames).toEqual([]);
-    expect(dropped).toBe(1);
+    expect(dropped).toEqual({ aged: 0, exhausted: 1, overCap: 0, total: 1 });
+  });
+
+  it('reports a frame that is both too old and out of replays as aged', () => {
+    // The two causes mean opposite things — `aged` is the benign steady state,
+    // `exhausted` is a loss signal — so a frame that trips both must not
+    // inflate the signal. It went out over an acknowledged connection, which
+    // makes its attempt count moot.
+    const r = new SendRetention({ ...opts, maxReplays: 1 });
+
+    r.retain('a', 1000);
+    r.sealOnClose(1100);
+    expect(r.takeForReplay(1200).frames).toEqual(['a']); // attempt 1, now spent
+
+    r.retain('a', 2000); // out of attempts AND about to age out
+    r.sealOnClose(20_000); // 18s later, well past maxAgeMs of 10s
+
+    expect(r.takeForReplay(20_100).dropped).toEqual({
+      aged: 1,
+      exhausted: 0,
+      overCap: 0,
+      total: 1,
+    });
   });
 
   it('counts replays per frame, not across the buffer', () => {
