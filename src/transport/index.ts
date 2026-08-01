@@ -33,7 +33,11 @@ export {
   DEFAULT_SEND_RETENTION_MS,
   DEFAULT_SEND_RETENTION_FRAMES,
 } from './send-retention';
-export type { SendRetentionOptions, SendRetentionReplay } from './send-retention';
+export type {
+  SendRetentionOptions,
+  SendRetentionReplay,
+  SendRetentionDropCauses,
+} from './send-retention';
 
 // Browser/Electron WebSocket implementation
 export { BrowserWebSocketClient, createBrowserWebSocketClient } from './browser-websocket';
