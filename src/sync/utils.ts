@@ -29,6 +29,69 @@ export const DEFAULT_SYNC_EXPIRY_MS = 30000;
 /** Aggressive sync timeout after receiving first response (1 second) */
 export const AGGRESSIVE_SYNC_TIMEOUT_MS = 1000;
 
+/**
+ * How much one advertised message is worth when ranking sync peers.
+ *
+ * See `SyncService.selectBestCandidate`. The absolute values are meaningless —
+ * only the RATIO between the two weights affects the outcome.
+ */
+export const SYNC_MESSAGE_WEIGHT = 1;
+
+/**
+ * How much one advertised member row is worth when ranking sync peers.
+ *
+ * Higher than a message on purpose, for two reasons:
+ *
+ * 1. A missing identity degrades every message that person ever sent — they all
+ *    render as a truncated address. A missing message costs one message.
+ * 2. Message counts are unbounded and grow forever while a roster is bounded by
+ *    the space's size, so on raw counts alone a busy space would drown the
+ *    roster axis out again — the exact bug this replaced.
+ *
+ * A tuning knob, not a law. Raise it if joiners still land on thin rosters;
+ * lower it if peers with little history start winning.
+ */
+export const SYNC_MEMBER_WEIGHT = 3;
+
+/**
+ * Largest member or message count we will believe from a peer.
+ *
+ * ⚠️ There must be a CEILING, not just a floor. A count is self-reported by a
+ * client we do not control, and a peer claiming 999,999,999 members would:
+ *
+ * - win `selectBestCandidate` outright against every honest peer, since the
+ *   member axis is weighted, letting one client make itself everybody's sync
+ *   source; and
+ * - on the receiver, set a target that can never be reached, so the convergence
+ *   check would spend its whole retry allowance every window forever.
+ *
+ * Neither needs malice — one arithmetic bug in a peer produces both. Ten
+ * million is far above any real Quorum space and far below the range where the
+ * weighting stops meaning anything.
+ */
+export const MAX_PLAUSIBLE_SYNC_COUNT = 10_000_000;
+
+/**
+ * Coerce an advertised count from a peer into something safe to do arithmetic
+ * with.
+ *
+ * Counts arrive over the wire from a client we do not control and may be
+ * absent (an older peer that predates the field), negative, `NaN`, `Infinity`
+ * or absurd. Any of those poisons a comparison silently: `NaN` compares false
+ * against everything, so the winner would quietly become whichever peer
+ * happened to be first, and `Infinity` would win every time.
+ *
+ * Implausible values are floored to 0 rather than clamped to the ceiling. A
+ * peer making an impossible claim has told us its numbers are untrustworthy, so
+ * the safe reading is "this peer offers nothing" — clamping would still let it
+ * win.
+ */
+export function advertisedCount(value: number | undefined | null): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 0;
+  if (value <= 0 || value > MAX_PLAUSIBLE_SYNC_COUNT) return 0;
+  return value;
+}
+
 // ============ Hash Functions ============
 
 /**

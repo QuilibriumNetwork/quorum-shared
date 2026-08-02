@@ -49,6 +49,9 @@ import {
   chunkMessages,
   DEFAULT_SYNC_EXPIRY_MS,
   AGGRESSIVE_SYNC_TIMEOUT_MS,
+  SYNC_MESSAGE_WEIGHT,
+  SYNC_MEMBER_WEIGHT,
+  advertisedCount,
 } from './utils';
 
 // ============ Configuration ============
@@ -572,20 +575,50 @@ export class SyncService {
   }
 
   /**
-   * Select best candidate based on data availability
+   * Select best candidate based on data availability.
+   *
+   * We sync with exactly ONE peer and inherit both halves of what it holds: its
+   * messages AND its member roster. So the choice has to value both.
+   *
+   * ⚠️ UNTIL 2026-08-02 this sorted on `messageCount` with `memberCount` as a
+   * tiebreaker. Message counts are near-identical between peers but essentially
+   * never EQUAL, so the tiebreaker was dead code and roster completeness was
+   * ignored outright. Measured live: a joining client was offered peers
+   * advertising 90, 79 and 72 members and synced with the 72 one — it held two
+   * more messages. That cost 18 member identities, each of which renders as a
+   * truncated address until some later sync happens to fix it.
+   *
+   * The replacement is a weighted sum of the raw counts. Two properties make it
+   * the right shape here:
+   *
+   * - **Ranking does not depend on what WE already hold.** Subtracting our own
+   *   counts from every candidate shifts all scores by the same constant, so
+   *   the winner is unchanged. That is why this can stay synchronous and never
+   *   consult our own cache.
+   * - **Relative shares would be wrong.** Normalising each axis against the best
+   *   peer makes a 3-vs-5 message gap look as decisive as a 3,000-vs-5,000 one,
+   *   which is exactly how a 2-message edge beat an 18-member one.
    */
   selectBestCandidate(spaceId: string): SyncCandidate | null {
     const session = this.sessions.get(spaceId);
     if (!session || session.candidates.length === 0) return null;
 
-    // Sort by message count (descending), then member count
-    const sorted = [...session.candidates].sort((a, b) => {
-      const msgDiff = b.summary.messageCount - a.summary.messageCount;
-      if (msgDiff !== 0) return msgDiff;
-      return b.summary.memberCount - a.summary.memberCount;
-    });
+    let best: SyncCandidate | null = null;
+    let bestScore = -Infinity;
 
-    return sorted[0];
+    for (const candidate of session.candidates) {
+      const score =
+        advertisedCount(candidate.summary?.messageCount) * SYNC_MESSAGE_WEIGHT +
+        advertisedCount(candidate.summary?.memberCount) * SYNC_MEMBER_WEIGHT;
+      // Strictly greater, so an exact tie keeps the peer that answered first
+      // rather than letting sort order decide it.
+      if (score > bestScore) {
+        bestScore = score;
+        best = candidate;
+      }
+    }
+
+    return best;
   }
 
   // ============ Step 3: Sync Initiate ============
