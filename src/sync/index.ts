@@ -49,6 +49,14 @@ export {
   MAX_CHUNK_SIZE,
   DEFAULT_SYNC_EXPIRY_MS,
   AGGRESSIVE_SYNC_TIMEOUT_MS,
+  SYNC_MESSAGE_WEIGHT,
+  SYNC_MEMBER_WEIGHT,
+  MAX_PLAUSIBLE_SYNC_COUNT,
+  // Wire-value sanitation — exported because BOTH apps have to apply the same
+  // floor and ceiling to a peer's self-reported counts. Two private copies of
+  // this rule would drift, and the ceiling in particular only works if
+  // everybody agrees on it.
+  advertisedCount,
   // Hash functions
   computeHash,
   computeContentHash,

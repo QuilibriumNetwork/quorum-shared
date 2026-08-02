@@ -54,17 +54,42 @@ export const SYNC_MESSAGE_WEIGHT = 1;
 export const SYNC_MEMBER_WEIGHT = 3;
 
 /**
+ * Largest member or message count we will believe from a peer.
+ *
+ * ⚠️ There must be a CEILING, not just a floor. A count is self-reported by a
+ * client we do not control, and a peer claiming 999,999,999 members would:
+ *
+ * - win `selectBestCandidate` outright against every honest peer, since the
+ *   member axis is weighted, letting one client make itself everybody's sync
+ *   source; and
+ * - on the receiver, set a target that can never be reached, so the convergence
+ *   check would spend its whole retry allowance every window forever.
+ *
+ * Neither needs malice — one arithmetic bug in a peer produces both. Ten
+ * million is far above any real Quorum space and far below the range where the
+ * weighting stops meaning anything.
+ */
+export const MAX_PLAUSIBLE_SYNC_COUNT = 10_000_000;
+
+/**
  * Coerce an advertised count from a peer into something safe to do arithmetic
  * with.
  *
  * Counts arrive over the wire from a client we do not control and may be
- * absent (an older peer that predates the field), negative, `NaN` or
- * `Infinity`. Any of those poisons a comparison silently: `NaN` compares false
+ * absent (an older peer that predates the field), negative, `NaN`, `Infinity`
+ * or absurd. Any of those poisons a comparison silently: `NaN` compares false
  * against everything, so the winner would quietly become whichever peer
  * happened to be first, and `Infinity` would win every time.
+ *
+ * Implausible values are floored to 0 rather than clamped to the ceiling. A
+ * peer making an impossible claim has told us its numbers are untrustworthy, so
+ * the safe reading is "this peer offers nothing" — clamping would still let it
+ * win.
  */
 export function advertisedCount(value: number | undefined | null): number {
-  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0;
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 0;
+  if (value <= 0 || value > MAX_PLAUSIBLE_SYNC_COUNT) return 0;
+  return value;
 }
 
 // ============ Hash Functions ============

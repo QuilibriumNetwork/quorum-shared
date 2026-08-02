@@ -31,6 +31,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { SyncService } from './service';
+import { MAX_PLAUSIBLE_SYNC_COUNT } from './utils';
 import type { StorageAdapter } from '../storage';
 import type { SyncCandidate } from './types';
 
@@ -124,8 +125,10 @@ describe('selectBestCandidate', () => {
     );
   });
 
-  // The opposite edge: roster completeness must NOT start winning on its own.
-  // A joiner that syncs from a near-empty peer to gain two member rows has
+  // ⚠️ OVER-CORRECTION GUARD, not a regression test. The old comparator also
+  // passes this one (it picks on 100 > 20 without ever reading member count).
+  // Its job is to fail if a future tune makes roster completeness win outright:
+  // a joiner that syncs from a near-empty peer to gain two member rows has
   // traded away the space's history.
   it('keeps the message-rich peer when the roster gain would be marginal', async () => {
     const service = await withCandidates(
@@ -136,6 +139,7 @@ describe('selectBestCandidate', () => {
     expect(service.selectBestCandidate(spaceId)?.inboxAddress).toBe('rich-history');
   });
 
+  // Also an over-correction guard — the old comparator passes this too.
   it('never prefers a peer that advertises nothing at all', async () => {
     const service = await withCandidates(peer('empty', 0, 0), peer('has-something', 1, 1));
 
@@ -160,6 +164,52 @@ describe('selectBestCandidate', () => {
     );
 
     expect(service.selectBestCandidate(spaceId)?.inboxAddress).toBe('sane');
+  });
+
+  it('does not let a negative count read as a real offer', async () => {
+    const service = await withCandidates(
+      peer('negative', -100, -100),
+      peer('sane', 1, 1)
+    );
+
+    expect(service.selectBestCandidate(spaceId)?.inboxAddress).toBe('sane');
+  });
+
+  // ⚠️ THE SECURITY-SHAPED ONE. Counts are self-reported. Without a ceiling a
+  // peer claiming an absurd roster wins against every honest peer and makes
+  // itself everybody's sync source — for MESSAGES as well as members.
+  it('refuses an implausible roster rather than letting it win', async () => {
+    const service = await withCandidates(
+      peer('liar', 1, MAX_PLAUSIBLE_SYNC_COUNT + 1),
+      peer('honest', 50, 80)
+    );
+
+    expect(service.selectBestCandidate(spaceId)?.inboxAddress).toBe('honest');
+  });
+
+  it('still believes a count sitting exactly on the ceiling', async () => {
+    const service = await withCandidates(
+      peer('very-large-but-possible', 1, MAX_PLAUSIBLE_SYNC_COUNT),
+      peer('ordinary', 50, 80)
+    );
+
+    expect(service.selectBestCandidate(spaceId)?.inboxAddress).toBe(
+      'very-large-but-possible'
+    );
+  });
+
+  // A peer that lies on ONE axis has told us its numbers are untrustworthy, but
+  // the axes are sanitised independently, so an absurd member count must not
+  // silently delete a plausible message count (or vice versa).
+  it('sanitises each axis on its own', async () => {
+    const service = await withCandidates(
+      peer('huge-roster-real-history', 1000, Infinity),
+      peer('modest', 1, 1)
+    );
+
+    expect(service.selectBestCandidate(spaceId)?.inboxAddress).toBe(
+      'huge-roster-real-history'
+    );
   });
 
   it('returns the same peer when asked twice, and leaves the candidates alone', async () => {
