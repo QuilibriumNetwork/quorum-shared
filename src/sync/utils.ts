@@ -29,6 +29,44 @@ export const DEFAULT_SYNC_EXPIRY_MS = 30000;
 /** Aggressive sync timeout after receiving first response (1 second) */
 export const AGGRESSIVE_SYNC_TIMEOUT_MS = 1000;
 
+/**
+ * How much one advertised message is worth when ranking sync peers.
+ *
+ * See `SyncService.selectBestCandidate`. The absolute values are meaningless —
+ * only the RATIO between the two weights affects the outcome.
+ */
+export const SYNC_MESSAGE_WEIGHT = 1;
+
+/**
+ * How much one advertised member row is worth when ranking sync peers.
+ *
+ * Higher than a message on purpose, for two reasons:
+ *
+ * 1. A missing identity degrades every message that person ever sent — they all
+ *    render as a truncated address. A missing message costs one message.
+ * 2. Message counts are unbounded and grow forever while a roster is bounded by
+ *    the space's size, so on raw counts alone a busy space would drown the
+ *    roster axis out again — the exact bug this replaced.
+ *
+ * A tuning knob, not a law. Raise it if joiners still land on thin rosters;
+ * lower it if peers with little history start winning.
+ */
+export const SYNC_MEMBER_WEIGHT = 3;
+
+/**
+ * Coerce an advertised count from a peer into something safe to do arithmetic
+ * with.
+ *
+ * Counts arrive over the wire from a client we do not control and may be
+ * absent (an older peer that predates the field), negative, `NaN` or
+ * `Infinity`. Any of those poisons a comparison silently: `NaN` compares false
+ * against everything, so the winner would quietly become whichever peer
+ * happened to be first, and `Infinity` would win every time.
+ */
+export function advertisedCount(value: number | undefined | null): number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0;
+}
+
 // ============ Hash Functions ============
 
 /**
