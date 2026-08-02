@@ -727,6 +727,18 @@ export class SyncService {
       }
     }
 
+    // What the member half of this exchange actually carries. Without it the
+    // handshake logs prove a delta was BUILT and the receiver logs prove one
+    // ARRIVED, while the roster stays empty and nothing distinguishes "built
+    // nothing", "lost in transit" and "failed to apply". That gap cost a full
+    // debugging session on 2026-08-02.
+    // See quorum-desktop/.agents/bugs/2026-08-02-roster-pull-delivers-nothing-to-a-new-joiner.md
+    logger.log(
+      `[SyncService] member delta: ours=${ourMemberDigests.length} theirs=${theirMemberDigests.length} ` +
+        `missing=${memberDiff.missingAddresses.length} outdated=${memberDiff.outdatedAddresses.length} ` +
+        `resolved=${memberDelta.members.length} (cache.memberMap=${cache.memberMap.size})`
+    );
+
     // Add member and peer deltas
     if (
       memberDelta.members.length > 0 ||
