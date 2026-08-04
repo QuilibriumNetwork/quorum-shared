@@ -66,15 +66,15 @@ describe('processMentions', () => {
   });
 
   it('tokenizes @everyone only when authorized', () => {
-    expect(processMentions('hey @everyone', [], true)).toBe('hey <<<MENTION_EVERYONE>>>');
+    expect(processMentions('hey @everyone', true)).toBe('hey <<<MENTION_EVERYONE>>>');
   });
 
   it('leaves @everyone as plain text when NOT authorized', () => {
-    expect(processMentions('hey @everyone', [], false)).toBe('hey @everyone');
+    expect(processMentions('hey @everyone', false)).toBe('hey @everyone');
   });
 
   it('respects word boundaries — x@everyone does not match', () => {
-    expect(processMentions('x@everyone', [], true)).toBe('x@everyone');
+    expect(processMentions('x@everyone', true)).toBe('x@everyone');
   });
 
   it('tokenizes a mention at string start and end', () => {
@@ -95,17 +95,54 @@ describe('processMentions', () => {
     expect(processMentions(text)).toBe(text);
   });
 
-  describe('legacy bare @address shim (divergence #5)', () => {
-    it('tokenizes a bare @name when it resolves to a member', () => {
-      expect(processMentions('hi @alice', [member()])).toBe(`hi <<<MENTION_USER:${ADDR}>>>`);
-    });
-
-    it('leaves a bare @word as plain text when no members are supplied (desktop)', () => {
+  // The legacy bare-`@Name` shim (divergence #5) was REMOVED. A name pill was a
+  // lie: the notification-side extractor honours `@<address>` only, so the pill
+  // rendered, opened a profile, and notified nobody. These tests pin that the
+  // branch stays gone — a bare name must not tokenize under any input.
+  describe('bare @Name never tokenizes (removed legacy shim)', () => {
+    it('leaves a bare @name as plain text even when a member matches by name', () => {
+      // `member()` has name 'alice'. The old shim turned this into a pill.
       expect(processMentions('hi @alice')).toBe('hi @alice');
+      expect(member().name).toBe('alice'); // the match the shim would have made
     });
 
-    it('leaves a bare @word that resolves to no member as plain text', () => {
-      expect(processMentions('hi @nobody', [member()])).toBe('hi @nobody');
+    it('leaves a bare @DisplayName as plain text even when a member matches', () => {
+      expect(processMentions('hi @Alice')).toBe('hi @Alice');
+      expect(member().display_name).toBe('Alice');
+    });
+
+    it('leaves a bare (unbracketed) @address as plain text', () => {
+      expect(processMentions(`hi @${ADDR}`)).toBe(`hi @${ADDR}`);
+    });
+
+    it('leaves an arbitrary @word as plain text', () => {
+      expect(processMentions('hi @nobody')).toBe('hi @nobody');
+    });
+
+    it('still tokenizes the canonical form in the same string as a bare name', () => {
+      expect(processMentions(`@alice and @<${ADDR}>`)).toBe(
+        `@alice and <<<MENTION_USER:${ADDR}>>>`,
+      );
+    });
+
+    // THE regression test. Before the removal this exact call returned
+    // `hi <<<MENTION_USER:Qm…>>>`. It is deliberately cast through `any`:
+    // the type system now rejects a member list outright (arg 2 is
+    // `everyoneAuthorized`), and this proves the RUNTIME ignores one too, so a
+    // JS caller or a stale `dist` cannot resurrect the branch either.
+    it('ignores a member list forced past the type system', () => {
+      const forced = processMentions as unknown as (
+        t: string,
+        members: SpaceMember[],
+      ) => string;
+      expect(forced('hi @alice', [member()])).toBe('hi @alice');
+      expect(forced(`hi @${ADDR}`, [member()])).toBe(`hi @${ADDR}`);
+    });
+
+    it('takes everyoneAuthorized as its second parameter, not members', () => {
+      // Type-level guard: re-adding a members parameter stops this compiling.
+      const secondArg: Parameters<typeof processMentions>[1] = true;
+      expect(typeof secondArg).toBe('boolean');
     });
   });
 });
@@ -333,7 +370,6 @@ describe('prepareMessageContent', () => {
     const out = prepareMessageContent(
       `# hi @<${ADDR}> @admin #<chan-123> https://x.com`,
       {
-        members: [],
         roles: [role()],
         channels: [channel()],
         everyoneAuthorized: false,
