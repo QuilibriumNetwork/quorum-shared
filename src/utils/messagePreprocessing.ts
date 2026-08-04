@@ -34,10 +34,9 @@
 
 import { hasWordBoundaries } from './mentions';
 import { createIPFSCIDRegex } from './validation';
-import type { SpaceMember, Role, Channel } from '../types';
+import type { Role, Channel } from '../types';
 
 export interface PreprocessOptions {
-  members?: SpaceMember[];
   roles?: Role[];
   channels?: Channel[];
   /**
@@ -109,20 +108,31 @@ export function isInProtectedRegion(index: number, regions: Region[]): boolean {
 
 /**
  * Convert `@everyone` and `@<address>` user mentions into internal tokens.
- * Also tolerates the legacy bare `@address` format already in storage from
- * older mobile clients (matched against the member map by display name / name /
- * address). The legacy shim only activates when `members` is non-empty, so it's
- * inert for desktop (which never produced bare-format mentions and passes none).
+ *
+ * ONLY the canonical `@<address>` form produces a user pill. A bare `@Name`
+ * stays plain text, deliberately and unconditionally.
+ *
+ * There used to be a legacy shim here that matched a bare `@Name` against a
+ * caller-supplied member list (keyed on display_name / name / address) and
+ * tokenized it. It was removed because the pill it produced was a lie:
+ * `extractMentionsFromText` — the notification-side extractor — honours
+ * `@<address>` only, so a bare-name pill was styled, clickable, opened a
+ * profile, and notified nobody, with no signal to the sender. It could also
+ * point at the wrong person outright, since display names are not unique and
+ * the key map silently kept the last member on a collision.
+ *
+ * The shim was gated on the caller passing a non-empty member list, which made
+ * it a convention rather than a rule — any future caller passing members would
+ * have switched it back on. The rule is now structural: render only what the
+ * notifier honours. `@everyone` (authorization-gated) and `@roleTag`
+ * (validated against the space's real roles) already worked this way; names
+ * were simply never brought in line.
  *
  * @param everyoneAuthorized — only tokenize `@everyone` when the caller has
  *   confirmed authorization; an unauthorized/spoofed `@everyone` stays plain
  *   text, matching the notification trust rule.
  */
-export function processMentions(
-  text: string,
-  members: SpaceMember[] = [],
-  everyoneAuthorized = false,
-): string {
+export function processMentions(text: string, everyoneAuthorized = false): string {
   let processed = text;
 
   // @everyone → token (only when authorized).
@@ -161,26 +171,7 @@ export function processMentions(
       processed.substring(match.index! + match[0].length);
   }
 
-  // Legacy bare @address (no brackets) — only convert when it resolves to a
-  // known member, so ordinary "@word" text isn't accidentally tokenized.
-  if (members.length > 0) {
-    const memberByKey = buildMemberKeyMap(members);
-    const bareRegex = /@([a-zA-Z0-9_.\-]+)/g;
-    const bareMatches = Array.from(processed.matchAll(bareRegex));
-    const validBare = bareMatches.filter((match) => {
-      if (!hasWordBoundaries(processed, match)) return false;
-      if (isInProtectedRegion(match.index!, getProtectedRegions(processed))) return false;
-      return Boolean(memberByKey[match[1].toLowerCase()]);
-    });
-    for (let i = validBare.length - 1; i >= 0; i--) {
-      const match = validBare[i];
-      const member = memberByKey[match[1].toLowerCase()];
-      processed =
-        processed.substring(0, match.index) +
-        `<<<MENTION_USER:${member.address}>>>` +
-        processed.substring(match.index! + match[0].length);
-    }
-  }
+  // NOTE: no bare `@Name` handling, by design. See the doc comment above.
 
   return processed;
 }
@@ -357,7 +348,7 @@ export function prepareMessageContent(text: string, opts: PreprocessOptions = {}
   // everything to `\n`. (Desktop renders via react-markdown and skips this by
   // calling the individual functions, not this orchestrator.)
   let processed = text.replace(/\r\n?/g, '\n');
-  processed = processMentions(processed, opts.members, opts.everyoneAuthorized);
+  processed = processMentions(processed, opts.everyoneAuthorized);
   processed = processRoleMentions(processed, opts.roles);
   processed = processChannelMentions(processed, opts.channels);
   processed = processURLs(processed);
@@ -404,14 +395,4 @@ export function hasMarkdown(text: string): boolean {
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function buildMemberKeyMap(members: SpaceMember[]): Record<string, SpaceMember> {
-  const map: Record<string, SpaceMember> = {};
-  members.forEach((m) => {
-    if (m.display_name) map[m.display_name.toLowerCase()] = m;
-    if (m.name) map[m.name.toLowerCase()] = m;
-    if (m.address) map[m.address.toLowerCase()] = m;
-  });
-  return map;
 }
