@@ -74,7 +74,12 @@ export type {
 } from './user';
 
 // Bookmark types
-export type { Bookmark } from './bookmark';
+export type {
+  Bookmark,
+  BookmarkPreview,
+  LegacyBookmark,
+  LegacyBookmarkPreview,
+} from './bookmark';
 export { BOOKMARKS_CONFIG } from './bookmark';
 
 // Notification types
