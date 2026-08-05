@@ -37,4 +37,5 @@ export * from './youtubeUtils';
 export * from './imageConfig';
 export * from './imageOrchestration';
 export * from './keyedMutex';
+export * from './bookmarkPayload';
 export { default as dayjs } from './dayjs';
