@@ -268,6 +268,7 @@ export type IconName =
   | 'jewish-star'
   | 'confucius'
   | 'ghost'
+  | 'skull'
   | 'spiral'
   | 'heart-handshake'
   | 'flower'
