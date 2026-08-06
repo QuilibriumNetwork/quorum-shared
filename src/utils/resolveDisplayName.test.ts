@@ -55,3 +55,80 @@ describe('resolveDisplayName', () => {
     expect(r.name.length).toBeGreaterThan(0);
   });
 });
+
+/**
+ * The forged-`.q` guard.
+ *
+ * `.q` is a trust marker and the ONLY signal a viewer gets — neither client
+ * renders `isQnsVerified`. The input validator that forbids a display name
+ * ending in `.q` runs on local text fields and nowhere on receive, so a
+ * modified client can broadcast one and every honest recipient renders it
+ * identically to a name somebody registered and elected primary.
+ *
+ * These cases pin the guard at the one function both clients call for every
+ * name they render. It lives here rather than in a client adapter because the
+ * previous arrangement — mobile enforcing it, desktop with no copy at all —
+ * left desktop exposed to an attack mobile was immune to, on a shared network.
+ */
+describe('resolveDisplayName — a name cannot forge the verified .q marker', () => {
+  it('drops a per-space override ending in .q', () => {
+    const r = resolveDisplayName({ ...base, display_name: 'Alice' }, {
+      spaceOverrideName: 'mallory.q',
+    });
+    expect(r.name).toBe('Alice');
+    expect(r.isQnsVerified).toBe(false);
+  });
+
+  it('drops a display name ending in .q', () => {
+    // The attack in full: broadcast `alice.q` as an ordinary display name and
+    // every recipient renders it exactly like the real thing.
+    const r = resolveDisplayName({ ...base, display_name: 'alice.q' }, {});
+    expect(r.name).not.toBe('alice.q');
+    expect(r.isQnsVerified).toBe(false);
+    expect(r.name.startsWith('Qm')).toBe(true); // fell through to the address
+  });
+
+  it('drops a legacy `name` ending in .q', () => {
+    const r = resolveDisplayName({ ...base, name: 'alice.q' }, {});
+    expect(r.isQnsVerified).toBe(false);
+    expect(r.name.startsWith('Qm')).toBe(true);
+  });
+
+  it('drops a primary_username that already carries the suffix', () => {
+    // A QNS name is stored BARE — the suffix is presentation. One arriving with
+    // `.q` on it is malformed however it got here, and would render `alice.q.q`.
+    const r = resolveDisplayName({ ...base, primary_username: 'alice.q' }, {});
+    expect(r.isQnsVerified).toBe(false);
+    expect(r.name).not.toContain('.q.q');
+  });
+
+  it('folds confusable Unicode dots, so a lookalike cannot slip through', () => {
+    // U+FF0E fullwidth full stop. A hand-rolled endsWith('.q') would miss it,
+    // which is why this delegates to the same helper the input validator uses.
+    const r = resolveDisplayName({ ...base, display_name: 'alice\uFF0Eq' }, {});
+    expect(r.isQnsVerified).toBe(false);
+    expect(r.name.startsWith('Qm')).toBe(true);
+  });
+
+  it('falls through to the next legitimate tier rather than to the address', () => {
+    // Dropping the forged override must not also lose a real name below it.
+    const r = resolveDisplayName(
+      { ...base, primary_username: 'realowner' },
+      { spaceOverrideName: 'realowner.q' },
+    );
+    expect(r.name).toBe('realowner');
+    expect(r.isQnsVerified).toBe(true);
+  });
+
+  it('leaves a mid-name dot alone, because it cannot look verified', () => {
+    // The rule is deliberately narrow: only a TRAILING `.q` can be mistaken for
+    // a verified handle. Blocking every dot would break ordinary names.
+    const r = resolveDisplayName({ ...base, display_name: 'jane.doe' }, {});
+    expect(r.name).toBe('jane.doe');
+  });
+
+  it('leaves a name merely CONTAINING .q alone', () => {
+    const r = resolveDisplayName({ ...base, display_name: 'alice.quinn' }, {});
+    expect(r.name).toBe('alice.quinn');
+  });
+});
