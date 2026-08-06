@@ -33,6 +33,7 @@ export function Icon({
   disabled = false,
   id,
   onClick,
+  title,
   variant = 'outline',
   colored = false,
 }: IconWebProps) {
@@ -112,6 +113,7 @@ export function Icon({
         style={combinedStyle}
         id={id}
         onClick={onClick}
+        title={title}
       />
     );
   }
@@ -148,6 +150,7 @@ export function Icon({
         onClick={onClick}
         aria-hidden="true"
       >
+        {title && <title>{title}</title>}
         {def.paths.map((p, i) => (
           <path
             key={i}

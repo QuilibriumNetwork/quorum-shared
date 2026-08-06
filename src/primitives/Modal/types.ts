@@ -12,6 +12,11 @@ export interface BaseModalProps {
   className?: string;
   noPadding?: boolean;
   titleAlign?: 'left' | 'center';
+  /**
+   * Native-only, ignored on web. Declared on the base so a component shared
+   * between the two apps can pass it without a platform branch.
+   */
+  swipeToClose?: boolean;
 }
 
 export interface WebModalProps extends BaseModalProps {
@@ -19,7 +24,6 @@ export interface WebModalProps extends BaseModalProps {
 }
 
 export interface NativeModalProps extends BaseModalProps {
-  // Native-specific props
-  swipeToClose?: boolean;
+  // Native-specific props (swipeToClose is declared on the base — see there)
   swipeUpToOpen?: boolean;
 }

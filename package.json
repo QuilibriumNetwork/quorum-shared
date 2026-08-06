@@ -27,7 +27,7 @@
   },
   "scripts": {
     "prepublishOnly": "npm run build",
-    "build": "tsup && tsc --project tsconfig.build.json",
+    "build": "tsup && tsc --project tsconfig.build.json && node scripts/emit-platform-shims.mjs",
     "dev": "tsup --watch",
     "lint": "eslint src --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",

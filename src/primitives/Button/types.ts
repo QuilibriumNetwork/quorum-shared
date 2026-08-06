@@ -22,18 +22,28 @@ export interface BaseButtonProps {
   iconOnly?: boolean; // If true, only show icon without text
   className?: string;
   ariaLabel?: string;
-  onClick: (event?: React.MouseEvent) => void;
+  /**
+   * Native-only, ignored on web. Declared on the base so a component shared
+   * between the two apps can pass it without a platform branch.
+   */
+  hapticFeedback?: boolean;
   tooltip?: string;
   children?: React.ReactNode;
 }
 
 export interface WebButtonProps extends BaseButtonProps {
-  // Web-specific props if needed
+  /**
+   * `event` is required rather than optional so a handler that needs it, e.g.
+   * `(e) => e.stopPropagation()`, is assignable. A zero-arg `() => void` still
+   * is, since a function with fewer parameters always assigns.
+   */
+  onClick: (event: React.MouseEvent) => void;
 }
 
 export interface NativeButtonProps extends BaseButtonProps {
-  // Native-specific props
-  hapticFeedback?: boolean;
+  /** No DOM event on native, so the handler takes nothing. */
+  onClick: () => void;
+  // Native-specific props (hapticFeedback is declared on the base — see there)
   accessibilityLabel?: string;
   fullWidthWithMargin?: boolean; // If true, button takes full width but with 40px left/right margins
 }

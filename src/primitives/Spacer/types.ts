@@ -2,7 +2,11 @@ export type SpacerSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | number;
 export type SpacerDirection = 'vertical' | 'horizontal';
 
 export interface BaseSpacerProps {
-  size: SpacerSize;
+  /**
+   * Optional: the compound form (`spaceBefore` / `border` / `spaceAfter`) sets
+   * its own spacing and does not use this.
+   */
+  size?: SpacerSize;
   direction?: SpacerDirection;
   borderTop?: boolean;
   borderBottom?: boolean;
