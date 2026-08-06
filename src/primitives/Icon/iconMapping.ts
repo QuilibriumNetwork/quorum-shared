@@ -197,6 +197,7 @@ export const iconComponentMap: Record<IconName, string> = {
   headset: 'IconHeadphones',
   'wifi-off': 'IconWifiOff',
   server: 'IconServer',
+  database: 'IconDatabase',
 
   // Development & Code
   code: 'IconCode',

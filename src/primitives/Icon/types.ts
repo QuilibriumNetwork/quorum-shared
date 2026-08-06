@@ -188,6 +188,7 @@ export type IconName =
   | 'headset'
   | 'wifi-off'
   | 'server'
+  | 'database'
 
   // Development & Code
   | 'code'
