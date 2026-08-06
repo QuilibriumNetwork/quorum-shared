@@ -188,6 +188,7 @@ export type IconName =
   | 'headset'
   | 'wifi-off'
   | 'server'
+  | 'database'
 
   // Development & Code
   | 'code'
@@ -268,6 +269,7 @@ export type IconName =
   | 'jewish-star'
   | 'confucius'
   | 'ghost'
+  | 'skull'
   | 'spiral'
   | 'heart-handshake'
   | 'flower'
@@ -303,7 +305,6 @@ export interface IconProps {
   disabled?: boolean;
   children?: ReactNode;
   id?: string;
-  onClick?: () => void;
   /**
    * Icon variant style
    * - 'outline': Stroke-based icon (default)
@@ -321,9 +322,17 @@ export interface IconProps {
 }
 
 export interface IconWebProps extends IconProps {
-  // Web-specific props can be added here if needed
+  /**
+   * `event` is required rather than optional so a handler that needs it, e.g.
+   * `(e) => deleteRole(e, i)`, is assignable. A zero-arg `() => void` still is,
+   * since a function with fewer parameters always assigns.
+   */
+  onClick?: (event: React.MouseEvent) => void;
+  /** Native browser tooltip, rendered as the SVG's `title` attribute. */
+  title?: string;
 }
 
 export interface IconNativeProps extends IconProps {
-  // Native-specific props can be added here if needed
+  /** No DOM event on native, so the handler takes nothing. */
+  onClick?: () => void;
 }

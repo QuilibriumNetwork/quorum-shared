@@ -82,7 +82,7 @@ export const Spacer: React.FC<NativeSpacerProps> = ({
   }
 
   // Regular spacer mode
-  const spacingValue = typeof size === 'number' ? size : SPACING_MAP[size];
+  const spacingValue = typeof size === 'number' ? size : SPACING_MAP[size ?? 'md'];
 
   const baseStyle: any =
     direction === 'vertical'

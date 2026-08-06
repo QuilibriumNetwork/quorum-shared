@@ -152,6 +152,7 @@ export const ICON_OPTIONS: IconOption[] = [
   { name: 'party', tier: 2, category: 'Celebrations' },
   { name: 'gift', tier: 2, category: 'Rewards' },
   { name: 'ghost', tier: 2, category: 'Playful' },
+  { name: 'skull', tier: 2, category: 'Playful' },
   { name: 'gender-female', tier: 2, category: 'Gender' },
   { name: 'gender-male', tier: 2, category: 'Gender' },
 
