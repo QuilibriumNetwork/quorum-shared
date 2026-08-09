@@ -114,7 +114,28 @@ export type UserConfig = {
   bookmarks?: Bookmark[];
   deletedBookmarkIds?: string[];
   userNotes?: UserNote[];
+  /**
+   * @deprecated Carries no deletion time, so a receiver cannot tell an old
+   * tombstone from a new one. Still PUBLISHED, so clients predating
+   * `deletedUserNotes` keep receiving deletions; new clients must NOT honour it.
+   *
+   * Why: a client that carries `userNotes` without implementing them (mobile
+   * does exactly this) never clears the array, so it republishes the same
+   * tombstone in every later save, indefinitely. A receiver applying those
+   * unconditionally deletes a note the user re-created, again on every adopt.
+   * The blob timestamp cannot substitute for a deletion time either, because it
+   * is the carrier's republish time and is therefore always recent.
+   */
   deletedUserNoteAddresses?: string[];
+  /**
+   * User-note tombstones that carry when the deletion happened.
+   *
+   * A tombstone deletes a note only when the note's own `updatedAt` is older
+   * than `deletedAt`. So re-creating a note after deleting it survives, while a
+   * stale device still cannot resurrect one that was deleted after it last
+   * synced — which is the reason tombstones exist.
+   */
+  deletedUserNotes?: { targetAddress: string; deletedAt: number }[];
   mutedChannels?: {
     [spaceId: string]: string[];
   };
