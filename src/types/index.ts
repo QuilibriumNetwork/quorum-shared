@@ -71,6 +71,8 @@ export type {
   PublicProfile,
   SpaceMember,
   SpaceMemberDevice,
+  PublishOutcome,
+  LastPublish,
 } from './user';
 
 // Bookmark types
