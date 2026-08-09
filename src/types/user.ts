@@ -223,3 +223,48 @@ export type SpaceMemberDevice = {
   /** true once a revoke-device tombstone with timestamp >= this arrived. Kept, never deleted. */
   revoked?: boolean;
 };
+
+/**
+ * What a config publish attempt did, from the publishing device's point of view.
+ *
+ * Both clients write the local config row on every save, whatever happened to
+ * the upload, so "my setting saved" has never been evidence that it synced.
+ * These distinguish the outcomes after the fact.
+ */
+export type PublishOutcome =
+  /** The POST returned. */
+  | 'published'
+  /** allowSync is false — not publishing is the setting working, not a fault. */
+  | 'off'
+  /** No keypair available on this device. */
+  | 'no-keys'
+  /** Refuse-to-publish: the upload would have narrowed the Space list. */
+  | 'held'
+  /** The server refused it. */
+  | 'rejected'
+  /** The request timed out client-side. */
+  | 'timeout';
+
+/**
+ * The last publish attempt on THIS device.
+ *
+ * Deliberately NOT part of UserConfig, and never sent to the server: it is a
+ * fact about one device's relationship with the server. In the synced blob it
+ * would broadcast a per-device fact to every other device, rewrite the blob on
+ * every save, and grow the very payload it exists to watch.
+ *
+ * Storage is per-client — localStorage on desktop, MMKV on mobile. Only the
+ * shape is shared.
+ */
+export type LastPublish = {
+  /** ms epoch */
+  at: number;
+  outcome: PublishOutcome;
+  /** Ciphertext length, present only when a payload was actually built. */
+  payloadBytes?: number;
+  spacesPublished?: number;
+  /** 'held' only — how many Spaces were missing keys. */
+  spacesHeld?: number;
+  /** Server message or error text, for 'rejected' and 'timeout'. */
+  detail?: string;
+};
