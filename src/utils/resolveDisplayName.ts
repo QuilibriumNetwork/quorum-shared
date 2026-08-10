@@ -1,15 +1,4 @@
-import type { SpaceMember, PublicProfile } from '../types/user';
 import { hasReservedQnsSuffix } from './validation';
-
-/**
- * The subset of member/profile fields the name-resolution rule reads.
- * Accepts any object carrying these (SpaceMember, PublicProfile, or a partial).
- */
-export type Resolvable = Partial<
-  Pick<SpaceMember & PublicProfile, 'display_name' | 'name' | 'primary_username'>
-> & {
-  address: string;
-};
 
 export interface ResolvedName {
   /** The readable name to display. Never empty. */
@@ -69,34 +58,67 @@ const truncate = (addr: string): string =>
   addr.length > 10 ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : addr;
 
 /**
- * The single name-resolution rule for the whole app. Most-specific wins:
+ * A member's identity, complete by construction.
  *
- *   per-space override → QNS primary_username → global display name → name → address
+ * Every field is REQUIRED and explicitly nullable. `null` means "known to be
+ * absent"; there is no `undefined`, so a caller that has not looked up a tier
+ * cannot silently omit it — omission is a compile error.
  *
- * Pure and platform-agnostic. The `.q` suffix and accent styling are applied by
- * the rendering layer based on `isQnsVerified`, not baked into `name`. This
- * function is the single source of truth so the four surfaces (profile card,
- * DM header, mention pill, mention autocomplete) can never drift apart.
+ * That is the whole point. The previous shape took three optional fields, and
+ * omitting `globalName` did not merely degrade the answer, it INVERTED it: the
+ * space ladder compares the per-space name against the global name to tell a
+ * deliberate nickname from the name echoed at join, so a missing global name
+ * made every roster name look deliberate and buried the QNS name beneath it.
+ * That defect was found in ~18 render surfaces across two clients in one day.
  */
-export function resolveDisplayName(
-  member: Resolvable,
-  opts: { spaceOverrideName?: string | null } = {}
+export interface MemberIdentity {
+  address: string;
+  /** Per-space nickname. `null` = none set, or no space context. */
+  spaceName: string | null;
+  /** QNS primary username, stored BARE (no ".q"). `null` = none elected. */
+  qnsName: string | null;
+  /** Global display name. `null` = none set. */
+  globalName: string | null;
+}
+
+/**
+ * Which ladder applies.
+ *
+ * - `space`  — inside a Space: a deliberate nickname outranks the QNS name.
+ * - `global` — a DM, or any surface with no Space context: there is no
+ *   per-space tier, so the QNS name outranks the display name. `spaceName` is
+ *   ignored rather than trusted.
+ */
+export type IdentityScope = 'space' | 'global';
+
+/**
+ * The single name-resolution rule for both clients.
+ *
+ *   space:  per-space nickname → QNS name → global name → truncated address
+ *   global:                      QNS name → global name → truncated address
+ *
+ * Pure and platform-agnostic. The ".q" suffix is applied by the rendering layer
+ * from `isQnsVerified`, never baked into `name`.
+ */
+export function resolveIdentity(
+  identity: MemberIdentity,
+  { scope }: { scope: IdentityScope },
 ): ResolvedName {
   // Every tier goes through `presentUnreserved`, not `present`: a name that
-  // would forge the `.q` marker is dropped wherever it is stored. See its
-  // docstring for why this is enforced at read, in shared, rather than at each
-  // client's write paths.
-  const override = presentUnreserved(opts.spaceOverrideName);
-  if (override) return { name: override, isQnsVerified: false };
+  // would forge the `.q` marker is dropped wherever it is stored.
+  const qns = presentUnreserved(identity.qnsName);
+  const global = presentUnreserved(identity.globalName);
 
-  const qns = presentUnreserved(member.primary_username);
+  if (scope === 'space') {
+    const space = presentUnreserved(identity.spaceName);
+    // A per-space name EQUAL to the global name is the copy made at join, not a
+    // deliberate choice, so it must not outrank the QNS name. The guard runs
+    // BEFORE this comparison: compared raw, a forged name differs from the
+    // global one and would read as deliberate.
+    if (space && space !== global) return { name: space, isQnsVerified: false };
+  }
+
   if (qns) return { name: qns, isQnsVerified: true };
-
-  const display = presentUnreserved(member.display_name);
-  if (display) return { name: display, isQnsVerified: false };
-
-  const name = presentUnreserved(member.name);
-  if (name) return { name, isQnsVerified: false };
-
-  return { name: truncate(member.address), isQnsVerified: false };
+  if (global) return { name: global, isQnsVerified: false };
+  return { name: truncate(identity.address), isQnsVerified: false };
 }
