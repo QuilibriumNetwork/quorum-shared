@@ -92,12 +92,36 @@ const HEX_ONLY = /^[0-9a-fA-F]+$/;
  * check.
  */
 function readKeyAsHex(record: ResolvedNameKey | null | undefined): string | undefined {
-  const hex = (record?.resolveKey ?? '').trim().replace(/^0x/i, '');
-  if (hex) {
-    return hex.length % 2 === 0 && HEX_ONLY.test(hex) ? hex : undefined;
-  }
+  // `??`, so a PRESENT-but-unreadable hex key still falls through to the base64
+  // spelling. Testing `if (hex)` instead would strand a record carrying a
+  // garbage `resolveKey` alongside a valid `resolve_key`, rejecting a claim
+  // whose key was right there.
+  return fromHexSpelling(record?.resolveKey) ?? fromBase64Spelling(record?.resolve_key);
+}
 
-  const b64 = (record?.resolve_key ?? '').trim();
+/**
+ * Trim `raw` if it is a string, otherwise treat it as absent.
+ *
+ * The record is whatever the resolver returned, parsed from JSON and CAST to a
+ * type — nothing validates it at runtime. So a field typed `string | null` can
+ * arrive as a number, an object or a boolean, and calling `.trim()` on one
+ * throws a TypeError. That throw would escape this module, escape the `useMemo`
+ * that calls it, and take down every surface under the identity provider — the
+ * blank message list this file's docstring promises never to cause. An
+ * unreadable key is "no key", which is already the fail-closed answer.
+ */
+const asTrimmedString = (raw: unknown): string => (typeof raw === 'string' ? raw.trim() : '');
+
+/** Hex, as `/resolve` and `/resolve/batch` return it (MEASURED: `0x`-prefixed). */
+function fromHexSpelling(raw: unknown): string | undefined {
+  const hex = asTrimmedString(raw).replace(/^0x/i, '');
+  if (!hex) return undefined;
+  return hex.length % 2 === 0 && HEX_ONLY.test(hex) ? hex : undefined;
+}
+
+/** Base64, as `/bucket/{tag}` returns it. */
+function fromBase64Spelling(raw: unknown): string | undefined {
+  const b64 = asTrimmedString(raw);
   if (!b64) return undefined;
   try {
     const decoded = bytesToHex(base64ToBytes(b64));

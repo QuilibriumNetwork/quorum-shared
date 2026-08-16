@@ -146,6 +146,33 @@ describe('claimedNameBelongsTo', () => {
     ).toBe(false);
   });
 
+  it('returns false instead of throwing when a key field is not a string', () => {
+    // The record is JSON, parsed and CAST — nothing validates its shape at
+    // runtime. A non-string key used to reach `.trim()` and throw a TypeError,
+    // which would escape the caller's useMemo and blank every surface under the
+    // identity provider. That is the exact outcome this file promises to avoid,
+    // and it is worse than the miss it was guarding.
+    for (const bad of [12345, {}, [], true, () => {}]) {
+      expect(() =>
+        claimedNameBelongsTo({ resolveKey: bad } as never, ADDRESS),
+      ).not.toThrow();
+      expect(claimedNameBelongsTo({ resolveKey: bad } as never, ADDRESS)).toBe(false);
+      expect(claimedNameBelongsTo({ resolve_key: bad } as never, ADDRESS)).toBe(false);
+    }
+  });
+
+  it('falls through to resolve_key when resolveKey is present but unreadable', () => {
+    // A record carrying garbage in one spelling and a valid key in the other
+    // must still verify — the key was right there. Testing "is resolveKey
+    // non-empty" rather than "is it usable" would strand this record.
+    expect(
+      claimedNameBelongsTo(
+        record({ resolveKey: 'not-hex-at-all', resolve_key: hexToBase64(KEY) }),
+        ADDRESS,
+      ),
+    ).toBe(true);
+  });
+
   it('does not compare addresses case-insensitively', () => {
     // base58 is case-SIGNIFICANT: `QmAbc` and `Qmabc` are different addresses.
     // Lowercasing before comparison, the reflex from hex and Ethereum work,
