@@ -34,6 +34,21 @@
  * they render under their global name until a lookup succeeds. Granting one to
  * an impersonator is undetectable by the viewer and permanent. So no record, no
  * key, a malformed key, a missing address — all false.
+ *
+ * ## ⚠️ quorum-mobile still has its own copy, and they have already diverged
+ *
+ * `quorum-mobile/utils/verifyQnsClaim.ts` shipped first and is where this was
+ * derived from. This is the intended long-term home (both clients need it, and
+ * `deriveAddress`/`resolveName` already live here), so **mobile's copy should be
+ * retired in favour of this one** — until it is, two implementations of the one
+ * check the whole feature rests on have to be changed together by hand.
+ *
+ * The known divergence, so whoever does that migration does not lose it: this
+ * version validates the key as even-length hex BEFORE deriving, because shared's
+ * `deriveAddress` coerces unparseable hex to zero bytes instead of throwing.
+ * Mobile's `deriveAddress` is a different implementation and throws, so mobile's
+ * copy relies on the `catch`. Dropping the guard while adopting this file would
+ * make malformed keys fail closed by luck rather than by construction.
  */
 
 import { base64ToBytes, bytesToHex } from '../utils/encoding';

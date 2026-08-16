@@ -42,6 +42,11 @@ export type QnsBatchResult = Record<string, QnsNameRecord | null>;
  * Blank entries are dropped and duplicates are collapsed, so callers can pass a
  * raw column of claims straight from a roster without pre-cleaning it.
  *
+ * `signal` is optional and exists so a caller can abandon a superseded lookup.
+ * A React Query caller should pass the `signal` from its query context: when a
+ * widening claim set makes an in-flight request obsolete, without this the old
+ * request still runs to completion and its answer is thrown away.
+ *
  * ## Throws rather than degrading, on purpose
  *
  * Any transport or server failure rejects. It would be easy to return "no
@@ -52,7 +57,10 @@ export type QnsBatchResult = Record<string, QnsNameRecord | null>;
  * empty — nothing verifies for that render, which is the correct fail-closed
  * outcome — and the next attempt refetches.
  */
-export async function resolveNamesBatch(names: string[]): Promise<QnsBatchResult> {
+export async function resolveNamesBatch(
+  names: string[],
+  signal?: AbortSignal,
+): Promise<QnsBatchResult> {
   const unique = Array.from(
     new Set(names.map((n) => (n ?? '').trim()).filter((n) => n.length > 0)),
   );
@@ -61,7 +69,7 @@ export async function resolveNamesBatch(names: string[]): Promise<QnsBatchResult
   const out: QnsBatchResult = {};
   for (let i = 0; i < unique.length; i += QNS_BATCH_LIMIT) {
     const chunk = unique.slice(i, i + QNS_BATCH_LIMIT);
-    const records = await postBatch(chunk);
+    const records = await postBatch(chunk, signal);
     chunk.forEach((name, index) => {
       out[name] = records[index] ?? null;
     });
@@ -69,11 +77,15 @@ export async function resolveNamesBatch(names: string[]): Promise<QnsBatchResult
   return out;
 }
 
-async function postBatch(names: string[]): Promise<(QnsNameRecord | null)[]> {
+async function postBatch(
+  names: string[],
+  signal?: AbortSignal,
+): Promise<(QnsNameRecord | null)[]> {
   const res = await fetch(`${QNS_BASE_URL}/resolve/batch`, {
     method: 'POST',
     headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
     body: JSON.stringify({ names }),
+    signal,
   });
   if (!res.ok) {
     throw new Error(`QNS batch resolve failed: ${res.status}`);

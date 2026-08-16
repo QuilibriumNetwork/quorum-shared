@@ -59,6 +59,27 @@ describe('resolveNamesBatch', () => {
     expect(out.nobody).toBeNull();
   });
 
+  it('passes an abort signal through to fetch', async () => {
+    // So a caller can abandon a superseded lookup. Without it, a request made
+    // obsolete by a widening claim set still runs to completion and its answer
+    // is discarded.
+    const fetchMock = vi.fn().mockResolvedValue(okResponse([{ resolveKey: 'aa' }]));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const controller = new AbortController();
+    await resolveNamesBatch(['alice'], controller.signal);
+
+    expect((fetchMock.mock.calls[0][1] as { signal?: AbortSignal }).signal).toBe(
+      controller.signal,
+    );
+  });
+
+  it('works without a signal, which stays optional', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okResponse([{ resolveKey: 'aa' }]));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(resolveNamesBatch(['alice'])).resolves.toBeTruthy();
+  });
+
   it('makes no request at all for an empty list', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
