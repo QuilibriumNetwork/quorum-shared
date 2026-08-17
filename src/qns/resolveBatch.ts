@@ -23,7 +23,8 @@
  *   correctness measure and not a performance tweak.
  */
 
-import { QNS_BASE_URL, type QnsNameRecord } from './resolver';
+import { type QnsNameRecord } from './resolver';
+import { qnsRequest, type QnsRequestInput } from './transport';
 
 /**
  * Server maximum for one `/resolve/batch` request. MEASURED, not documented:
@@ -42,10 +43,21 @@ export type QnsBatchResult = Record<string, QnsNameRecord | null>;
  * Blank entries are dropped and duplicates are collapsed, so callers can pass a
  * raw column of claims straight from a roster without pre-cleaning it.
  *
- * `signal` is optional and exists so a caller can abandon a superseded lookup.
+ * `opts` is optional. It accepts either a `QnsRequestOptions` object — base
+ * URL, request deadline, abort signal — or a bare `AbortSignal`, which is the
+ * form desktop already calls with.
+ *
  * A React Query caller should pass the `signal` from its query context: when a
  * widening claim set makes an in-flight request obsolete, without this the old
- * request still runs to completion and its answer is thrown away.
+ * request still runs to completion and its answer is thrown away. That signal
+ * does not bound elapsed time, which is what the deadline is for — the two
+ * compose, see `qnsRequest`.
+ *
+ * ## Each chunk gets its own deadline
+ *
+ * The chunks below are sequential requests, and the deadline applies to each
+ * one rather than to the call as a whole. A large roster therefore has no fixed
+ * upper bound on total time; see the reasoning in `transport.ts`.
  *
  * ## Throws rather than degrading, on purpose
  *
@@ -59,7 +71,7 @@ export type QnsBatchResult = Record<string, QnsNameRecord | null>;
  */
 export async function resolveNamesBatch(
   names: string[],
-  signal?: AbortSignal,
+  opts?: QnsRequestInput,
 ): Promise<QnsBatchResult> {
   const unique = Array.from(
     new Set(names.map((n) => (n ?? '').trim()).filter((n) => n.length > 0)),
@@ -69,7 +81,7 @@ export async function resolveNamesBatch(
   const out: QnsBatchResult = {};
   for (let i = 0; i < unique.length; i += QNS_BATCH_LIMIT) {
     const chunk = unique.slice(i, i + QNS_BATCH_LIMIT);
-    const records = await postBatch(chunk, signal);
+    const records = await postBatch(chunk, opts);
     chunk.forEach((name, index) => {
       out[name] = records[index] ?? null;
     });
@@ -79,19 +91,23 @@ export async function resolveNamesBatch(
 
 async function postBatch(
   names: string[],
-  signal?: AbortSignal,
+  opts?: QnsRequestInput,
 ): Promise<(QnsNameRecord | null)[]> {
-  const res = await fetch(`${QNS_BASE_URL}/resolve/batch`, {
-    method: 'POST',
-    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-    body: JSON.stringify({ names }),
-    signal,
-  });
+  const res = await qnsRequest(
+    '/resolve/batch',
+    {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ names }),
+    },
+    opts,
+    'resolve/batch',
+  );
   if (!res.ok) {
     throw new Error(`QNS batch resolve failed: ${res.status}`);
   }
 
-  const body = (await res.json()) as { records?: (QnsNameRecord | null)[] };
+  const body = res.body as { records?: (QnsNameRecord | null)[] };
   const records = body?.records;
   if (!Array.isArray(records)) {
     throw new Error('QNS batch resolve returned no records array');
