@@ -59,19 +59,56 @@ describe('resolveNamesBatch', () => {
     expect(out.nobody).toBeNull();
   });
 
-  it('passes an abort signal through to fetch', async () => {
+  it('still accepts a bare AbortSignal, and aborting it aborts the in-flight request', async () => {
     // So a caller can abandon a superseded lookup. Without it, a request made
     // obsolete by a widening claim set still runs to completion and its answer
     // is discarded.
-    const fetchMock = vi.fn().mockResolvedValue(okResponse([{ resolveKey: 'aa' }]));
+    //
+    // The assertion is on BEHAVIOUR, not on object identity. Since the deadline
+    // landed, the signal `fetch` receives is a composed one rather than the
+    // caller's, so an identity check would fail while cancellation worked
+    // perfectly. What has to hold is that the caller's abort reaches the
+    // request — and it has to be asserted while the request is still IN FLIGHT,
+    // because the composition is deliberately torn down once the request
+    // settles.
+    //
+    // The bare-signal form is also the compatibility surface — desktop calls
+    // `resolveNamesBatch(names, signal)` today — so this doubles as the test
+    // that widening the argument to an options object did not break it.
+    const fetchMock = vi.fn().mockImplementation(
+      (_url: string, init: unknown) =>
+        new Promise((_resolve, reject) => {
+          (init as { signal?: AbortSignal }).signal?.addEventListener('abort', () => {
+            const err = new Error('The operation was aborted.');
+            err.name = 'AbortError';
+            reject(err);
+          });
+        }),
+    );
     vi.stubGlobal('fetch', fetchMock);
 
     const controller = new AbortController();
-    await resolveNamesBatch(['alice'], controller.signal);
-
-    expect((fetchMock.mock.calls[0][1] as { signal?: AbortSignal }).signal).toBe(
-      controller.signal,
+    // `then(throw, identity)` rather than `catch(identity)`: the catch form
+    // hands back the RESOLVED value if the request stops failing, and every
+    // assertion against it then reads `undefined` instead of going red.
+    const caught = resolveNamesBatch(['alice'], controller.signal).then(
+      () => {
+        throw new Error('expected the request to reject, but it resolved');
+      },
+      (err: Error) => err,
     );
+
+    // `fetch` is reached synchronously, so the request is genuinely in flight
+    // by now — asserted rather than assumed, since aborting before the request
+    // existed would pass for the wrong reason.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const passed = (fetchMock.mock.calls[0][1] as { signal?: AbortSignal }).signal;
+    expect(passed?.aborted).toBe(false);
+
+    controller.abort();
+
+    expect(passed?.aborted).toBe(true);
+    expect((await caught).name).toBe('AbortError');
   });
 
   it('works without a signal, which stays optional', async () => {
@@ -124,6 +161,22 @@ describe('resolveNamesBatch', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     await resolveNamesBatch(['alice', '', '   ']);
+
+    expect(bodiesOf(fetchMock)[0]).toEqual({ names: ['alice'] });
+  });
+
+  it('drops null and undefined entries rather than throwing on them', async () => {
+    // The docstring invites callers to "pass a raw column of claims straight
+    // from a roster without pre-cleaning it", and a raw column from an untyped
+    // caller has holes in it. `(n ?? '').trim()` exists for exactly that, but
+    // nothing exercised the `??` — so a refactor to `n.trim()` would typecheck,
+    // pass every test, and then throw on the first sparse roster in production,
+    // taking the whole verification pass down with it.
+    const fetchMock = vi.fn().mockResolvedValue(okResponse([{ resolveKey: 'aa' }]));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const names = ['alice', null, undefined] as unknown as string[];
+    await expect(resolveNamesBatch(names)).resolves.toBeTruthy();
 
     expect(bodiesOf(fetchMock)[0]).toEqual({ names: ['alice'] });
   });
