@@ -91,40 +91,140 @@ function shouldLog(level: LogLevel): boolean {
  * differently, so the React Native side needs its own measured control arm
  * before this is trusted there.
  */
-const QUOTED_SPAN = /"[^"]*"|'[^']*'/g;
-
-const redactError = (e: Error): { name: string; message: string } => ({
-  name: e.name,
-  message: e.message.replace(QUOTED_SPAN, '<redacted>'),
-});
+/**
+ * The echoed excerpt itself. GREEDY and double-quote only, both deliberately.
+ *
+ * ⚠️ This was `/"[^"]*"|'[^']*'/g` and that version LEAKED. Two independent
+ * failures, both reproduced:
+ *
+ *  1. Lazy matching pairs delimiters wrongly when the plaintext contains its
+ *     own quote, and the text between the wrong pair survives:
+ *       plaintext  He "LEAKME" and more
+ *       raw        Unexpected token 'H', "He "LEAKME"... is not valid JSON
+ *       old redact Unexpected token 'H', <redacted>LEAKME<redacted>...
+ *     Dialogue, nicknames and scare-quotes are ordinary in real messages, so
+ *     this was not an edge case. Greedy — first quote to last — cannot be
+ *     split this way.
+ *
+ *  2. The single-quote half treated every apostrophe as a delimiter, so an
+ *     ordinary contraction paired with an unrelated quoted identifier and ate
+ *     the text between them:
+ *       Something you don't expect: value 'foo' was received
+ *    -> Something you don<redacted>foo' was received
+ *     It also protected nothing: V8 puts the echoed payload in DOUBLE quotes.
+ */
+const ECHOED_EXCERPT = /"[\s\S]*"/;
 
 /**
- * Errors are commonly passed either directly (`logger.warn(msg, err)`) or
- * nested one level inside a context object (`logger.warn(msg, { err, spaceId })`).
- * Both shapes are covered; deeper nesting is left alone rather than walking
- * arbitrary graphs on every log call.
+ * V8 also names the offending character, `Unexpected token 'H'` — one character
+ * of plaintext. Matching exactly one character between the quotes redacts that
+ * without touching identifiers like `'put'` or `'IDBObjectStore'`, which are
+ * code constants and are frequently the ENTIRE diagnostic value of a
+ * DOMException. Redacting those would recreate the zero-signal problem this
+ * work exists to fix.
  */
-function redactErrors(arg: unknown, depth = 0): unknown {
-  if (arg instanceof Error) return redactError(arg);
-  if (depth >= 1 || arg === null || typeof arg !== 'object') return arg;
-  if (Array.isArray(arg)) return arg.map((v) => redactErrors(v, depth + 1));
+const ECHOED_TOKEN_CHAR = /'.'/g;
 
-  // Only walk plain objects. Class instances may have getters with side effects.
+const redactMessage = (message: string): string =>
+  message
+    .replace(ECHOED_EXCERPT, '<redacted>')
+    .replace(ECHOED_TOKEN_CHAR, "'<redacted>'");
+
+/**
+ * True for anything carrying a string `message`, whether or not it is a real
+ * `Error`.
+ *
+ * `instanceof Error` is not sufficient and relying on it leaked. It is false
+ * for cross-realm errors (thrown in an iframe or worker), false for
+ * `DOMException` in most engines, and false for whatever shape a WASM-backed
+ * SDK decides to throw — and the decrypt path this protects runs through
+ * exactly such an SDK. Duck-typing on `message` catches all of them.
+ */
+const isErrorLike = (v: unknown): v is { name?: unknown; message: string } =>
+  typeof v === 'object' &&
+  v !== null &&
+  typeof (v as { message?: unknown }).message === 'string';
+
+/**
+ * Deep enough for realistic log shapes (`{ ctx: { errors: [err] } }`) without
+ * walking unbounded graphs on every call. Anything deeper is replaced rather
+ * than passed through: this is a privacy control, so the unknown case fails
+ * closed.
+ */
+const MAX_DEPTH = 4;
+
+/**
+ * Errors reach the logger in many shapes: directly (`logger.warn(msg, err)`),
+ * one level inside a context object (`logger.warn(msg, { err, spaceId })`), and
+ * inside nested containers (`{ errors: [err] }`).
+ *
+ * An earlier version stopped at depth 1 and, worse, bailed out BEFORE walking a
+ * container found at that depth — so `{ errors: [err] }` and `{ outer: { err } }`
+ * were returned completely untouched and leaked the full plaintext. Both are
+ * ordinary call shapes. Regression tests for each are in logger.test.ts.
+ */
+function redactErrors(
+  arg: unknown,
+  depth = 0,
+  seen: WeakSet<object> = new WeakSet()
+): unknown {
+  if (arg === null || typeof arg !== 'object') return arg;
+
+  // Checked before the depth and prototype guards below, so an error nested
+  // deeply, or one that is a class instance, is still redacted.
+  if (arg instanceof Error || isErrorLike(arg)) {
+    const name = (arg as { name?: unknown }).name;
+    const stack = (arg as { stack?: unknown }).stack;
+    return {
+      name: typeof name === 'string' ? name : 'Error',
+      message: redactMessage((arg as { message: string }).message),
+      // Kept, because dropping it silently removed the single most useful part
+      // of an error report. A stack holds function names, file paths and line
+      // numbers, not echoed input — but it is redacted anyway, since an engine
+      // can embed a stringified argument in a frame.
+      ...(typeof stack === 'string' ? { stack: redactMessage(stack) } : {}),
+    };
+  }
+
+  if (seen.has(arg)) return '<cycle>';
+  if (depth >= MAX_DEPTH) return '<truncated>';
+  seen.add(arg);
+
+  if (Array.isArray(arg))
+    return arg.map((v) => redactErrors(v, depth + 1, seen));
+
+  // Only walk plain objects. Class instances may have getters with side
+  // effects, so they are passed through untouched — acceptable because the
+  // error-like check above already caught the shape that carries a message.
   const proto: unknown = Object.getPrototypeOf(arg);
   if (proto !== Object.prototype && proto !== null) return arg;
 
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(arg as Record<string, unknown>)) {
-    out[k] = redactErrors(v, depth + 1);
+    out[k] = redactErrors(v, depth + 1, seen);
   }
   return out;
 }
 
 function createLogMethod(level: LogLevel): (...args: unknown[]) => void {
   return (...args: unknown[]) => {
-    if (shouldLog(level)) {
-      console[level](...(config.redact ? args.map((a) => redactErrors(a)) : args));
+    if (!shouldLog(level)) return;
+    if (!config.redact) {
+      console[level](...args);
+      return;
     }
+    let safe: unknown[];
+    try {
+      safe = args.map((a) => redactErrors(a));
+    } catch {
+      // A logger must never throw into its caller. `Object.entries` invokes
+      // getters, and an accessor property that throws would otherwise
+      // propagate out of logger.error and abort the very catch block that
+      // called it — breaking the "fail open and log" design this codebase
+      // relies on. Fail closed on content, but never on control flow.
+      safe = ['<redaction failed>'];
+    }
+    console[level](...safe);
   };
 }
 
