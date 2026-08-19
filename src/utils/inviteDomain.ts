@@ -25,12 +25,24 @@ const CANONICAL_INVITE_DOMAIN = 'app.quorummessenger.com';
  *
  * This used to read `window.location`, so a staging build produced
  * `test.quorummessenger.com` links and a dev build produced `localhost:5173`
- * ones. That was actively harmful rather than merely untidy: the generated URL
- * is persisted into `space.inviteUrl` and replicated to every member on every
- * client, so a link minted on a developer's machine reached real users as a URL
- * they could not open. Mobile's accept-list did not even include the staging
- * host, so such a link failed its `isPublicInvite` check and hid the member
- * share affordance entirely.
+ * ones. That was a deliberate design, not an oversight — it was documented as
+ * staging isolation, keeping a test-environment invite from being mistaken for
+ * a production one.
+ *
+ * What invalidated it was a change elsewhere, not a flaw in the reasoning. That
+ * design held only while a Space's `inviteUrl` stayed on the device that
+ * generated it. It no longer does: the URL is persisted into `space.inviteUrl`
+ * and replicated to every member on every client, and receivers also
+ * reconstruct it locally from an incoming envelope using their OWN environment.
+ * So the environment of whoever last touched the link now leaks to everyone
+ * else, and a link minted on a developer's machine reaches real users as a URL
+ * they cannot open. Mobile's accept-list does not even include the staging
+ * host, so such a link additionally fails its `isPublicInvite` check and hides
+ * the member share affordance entirely.
+ *
+ * Isolation has to come from somewhere other than the domain now, and in
+ * practice it already does: a staging link carries staging keys and a staging
+ * Space id, so it cannot open a production Space whatever host it names.
  *
  * The domain also carries no information: the entire join payload lives in the
  * hash fragment, and every environment already accepts production-domain links
