@@ -1,47 +1,51 @@
 /**
- * Utility functions for managing invite link domains across different environments
- * Automatically detects staging vs production and uses the appropriate domain
+ * Utility functions for invite link domains.
+ *
+ * GENERATION IS CANONICAL; ACCEPTANCE IS PERMISSIVE. Every invite link this
+ * library builds carries the production domain, whatever build produced it.
+ * `getValidInvitePrefixes` below stays broad so links from any environment,
+ * including older ones, still parse when someone joins.
  */
 
 import { logger } from './logger';
 import { buildValidPrefixes, getEnvironmentInfo } from './environmentDomains';
 
 /**
- * Get the base domain for invite links based on the current environment
- * @returns The appropriate domain for invite links
+ * The one domain invite links are ever generated with.
+ *
+ * `app.quorummessenger.com` rather than the shorter `qm.one` because that is
+ * what the mobile client has always hardcoded, and two clients minting
+ * different domains for the same Space is the drift this constant exists to
+ * end.
+ */
+const CANONICAL_INVITE_DOMAIN = 'app.quorummessenger.com';
+
+/**
+ * Get the base domain for invite links.
+ *
+ * This used to read `window.location`, so a staging build produced
+ * `test.quorummessenger.com` links and a dev build produced `localhost:5173`
+ * ones. That was actively harmful rather than merely untidy: the generated URL
+ * is persisted into `space.inviteUrl` and replicated to every member on every
+ * client, so a link minted on a developer's machine reached real users as a URL
+ * they could not open. Mobile's accept-list did not even include the staging
+ * host, so such a link failed its `isPublicInvite` check and hid the member
+ * share affordance entirely.
+ *
+ * The domain also carries no information: the entire join payload lives in the
+ * hash fragment, and every environment already accepts production-domain links
+ * (see `getValidInvitePrefixes`). So environment-awareness here bought nothing
+ * and cost link portability.
+ *
+ * Trade-off accepted: on a non-production build, a generated link no longer
+ * deep-links back into that same build. Pasting one into the join field still
+ * works, since acceptance is unchanged; only click-through needs the domain
+ * edited by hand.
+ *
+ * @returns The production invite domain, unconditionally.
  */
 export function getInviteBaseDomain(): string {
-  // Check if we're in a browser environment
-  if (typeof window !== 'undefined' && window.location) {
-    const hostname = window.location.hostname;
-    const port = window.location.port;
-
-    // Check for staging/test environment
-    if (hostname === 'test.quorummessenger.com') {
-      // On staging, use the full staging URL for invite links
-      return 'test.quorummessenger.com';
-    }
-
-    // Check for production environment
-    if (hostname === 'app.quorummessenger.com') {
-      // On production, use the short domain for invite links
-      return 'qm.one';
-    }
-
-    // Check for localhost/development
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      // In development, use localhost with port for invite links
-      // This allows testing invite links locally
-      return port ? `${hostname}:${port}` : hostname;
-    }
-
-    // For any other domain (e.g., custom deployments)
-    // Use the current domain as the invite domain
-    return hostname;
-  }
-
-  // Default to production short domain
-  return 'qm.one';
+  return CANONICAL_INVITE_DOMAIN;
 }
 
 /**
@@ -50,15 +54,8 @@ export function getInviteBaseDomain(): string {
  * @returns The full URL base for invite links
  */
 export function getInviteUrlBase(isPublicInvite: boolean = false): string {
-  const domain = getInviteBaseDomain();
   const path = isPublicInvite ? '/invite/' : '/';
-
-  // Use http for localhost, https for everything else
-  const protocol = domain.startsWith('localhost') || domain.startsWith('127.0.0.1')
-    ? 'http'
-    : 'https';
-
-  return `${protocol}://${domain}${path}`;
+  return `https://${getInviteBaseDomain()}${path}`;
 }
 
 /**
@@ -104,12 +101,16 @@ export function getValidInvitePrefixes(): string[] {
 }
 
 /**
- * Format the display domain for UI (without protocol)
+ * Format the display domain for UI (without protocol).
+ *
+ * Now the production domain everywhere, matching what generation produces. A
+ * dev build therefore shows the production domain in join-field placeholders;
+ * that is correct, because it is the domain the link it builds will carry.
+ *
  * @returns The domain for display in UI elements
  */
 export function getInviteDisplayDomain(): string {
-  const domain = getInviteBaseDomain();
-  return domain;
+  return getInviteBaseDomain();
 }
 
 /**
