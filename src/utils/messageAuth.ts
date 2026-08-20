@@ -166,11 +166,18 @@ export function resolveVerifiedSender(
  * `signatureValid` is true. Callers that need proof of authorship must test
  * `signatureValid`, never `sender !== null` alone.
  */
-export interface VerifiedSenderResult {
-  signatureValid: boolean;
-  reason: 'ok' | 'no-signature' | 'messageid-mismatch' | 'bad-signature';
-  sender: VerifiedSender | null;
-}
+export type VerifiedSenderResult =
+  | {
+      signatureValid: false;
+      reason: 'no-signature' | 'messageid-mismatch' | 'bad-signature';
+      /** Structurally absent: nothing was proven, so there is nobody to name. */
+      sender?: undefined;
+    }
+  | {
+      signatureValid: true;
+      reason: 'ok';
+      sender: VerifiedSender | null;
+    };
 
 /** The fields of a space message that authorship depends on. */
 export type VerifiableSpaceMessage = Pick<
@@ -217,8 +224,8 @@ export async function verifyAndResolveSender(params: {
   } = params;
 
   const fail = (
-    reason: VerifiedSenderResult['reason']
-  ): VerifiedSenderResult => ({ signatureValid: false, reason, sender: null });
+    reason: Extract<VerifiedSenderResult, { signatureValid: false }>['reason']
+  ): VerifiedSenderResult => ({ signatureValid: false, reason });
 
   if (!message.publicKey || !message.signature) return fail('no-signature');
 

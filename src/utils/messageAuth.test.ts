@@ -513,11 +513,11 @@ describe('verifyAndResolveSender', () => {
     // The whole point. Alice's public key is public — it rides on every signed
     // message she sends — so possessing it must prove nothing on its own.
     const provider = makeProvider(false);
-    expect(await run(signedPost(), provider)).toEqual({
-      signatureValid: false,
-      reason: 'bad-signature',
-      sender: null,
-    });
+    const result = await run(signedPost(), provider);
+    expect(result).toEqual({ signatureValid: false, reason: 'bad-signature' });
+    // Absent, not merely null: the failure branch of the union carries no
+    // sender at all, so there is nothing for a caller to read by mistake.
+    expect(result.sender).toBeUndefined();
   });
 
   it('rejects an unsigned message without calling the verifier', async () => {
@@ -527,7 +527,7 @@ describe('verifyAndResolveSender', () => {
         signedPost({ publicKey: undefined, signature: undefined }),
         provider
       )
-    ).toEqual({ signatureValid: false, reason: 'no-signature', sender: null });
+    ).toEqual({ signatureValid: false, reason: 'no-signature' });
     expect(provider.calls).toHaveLength(0);
   });
 
@@ -537,7 +537,6 @@ describe('verifyAndResolveSender', () => {
     expect(await run(signedPost({ messageId: 'deadbeef' }), provider)).toEqual({
       signatureValid: false,
       reason: 'messageid-mismatch',
-      sender: null,
     });
     expect(provider.calls).toHaveLength(0);
   });
@@ -553,6 +552,40 @@ describe('verifyAndResolveSender', () => {
     );
     expect(result.signatureValid).toBe(true);
     expect(result.sender).toBeNull();
+  });
+
+  it('a kicked member resolves to nobody even with a valid signature', async () => {
+    // The fused path delegates the member gate to resolveVerifiedSender. Pinned
+    // here too so the delegation itself cannot drift: a kicked member holds
+    // working key material, so the signature is genuinely valid and only the
+    // membership check stands between them and acting on the space.
+    const provider = makeProvider(true);
+    const result = await verifyAndResolveSender({
+      message: signedPost(),
+      scopeSpaceId: SPACE_ID,
+      scopeChannelId: CHANNEL_ID,
+      members: [
+        {
+          user_address: ALICE,
+          address: ALICE,
+          inbox_address: ALICE_INBOX,
+          isKicked: true,
+        },
+      ] as unknown as SpaceMember[],
+      provider,
+    });
+    expect(result.signatureValid).toBe(true);
+    expect(result.sender).toBeNull();
+  });
+
+  it('degrades to a verdict on malformed hex rather than throwing', async () => {
+    // This runs inside the receive path's broad try/catch, where a throw would
+    // be swallowed and silently drop the message — a bug class this codebase
+    // has shipped before (see 2026-06-13-space-members-missing-no-join-row).
+    const provider = makeProvider(false);
+    await expect(
+      run(signedPost({ publicKey: 'zz zz', signature: 'nothex' }), provider)
+    ).resolves.toMatchObject({ signatureValid: false });
   });
 
   it('signs over the raw digest bytes, not the hex string', async () => {
@@ -596,6 +629,6 @@ describe('verifyAndResolveSender', () => {
     const provider = makeProvider(true);
     const result = await run(signedForOtherSpace, provider);
     expect(result.reason).toBe('messageid-mismatch');
-    expect(result.sender).toBeNull();
+    expect(result.sender).toBeUndefined();
   });
 });
