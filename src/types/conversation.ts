@@ -25,12 +25,19 @@ export type Conversation = {
    * separate field name is that a surface which skips verification cannot
    * accidentally read a claim out of the verified slot.
    *
-   * Named to match mobile's `claimed_primary_username` in meaning; the casing
-   * follows this type's own convention rather than mobile's storage key.
+   * ⚠️ SNAKE_CASE ON PURPOSE, breaking this type's own convention. quorum-mobile
+   * has been reading and writing exactly this key for a long time (MEASURED
+   * 2026-08-20: 23 files use `claimed_primary_username`, none use a camelCase
+   * spelling), previously force-cast past its own type checker because the field
+   * was undeclared here. Declaring the camelCase spelling instead would have
+   * made this type describe a field that no mobile row ever carries — a clean
+   * compile returning `undefined` forever, which is the worst kind of bug.
+   * Desktop is the newcomer to this concept and conforms to mobile, not the
+   * reverse.
    *
    * Empty string = a deliberate un-election, distinct from absent ("no change").
    */
-  claimedPrimaryUsername?: string;
+  claimed_primary_username?: string;
   lastReadTimestamp?: number;
   isRepudiable?: boolean;
   saveEditHistory?: boolean;

@@ -83,7 +83,7 @@ export type DMUpdateProfileMessage = {
    *
    * ⚠️ A CLAIM, NOT A FACT. Nothing in this frame proves the sender owns the
    * name. Receivers must store it under a claimed-only key (mobile:
-   * `claimed_primary_username`, desktop: `Conversation.claimedPrimaryUsername`)
+   * `claimed_primary_username`, desktop: `Conversation.claimed_primary_username`)
    * and must never place it in a verified slot or render it as a `.q` name
    * without going through their own verification path.
    *
