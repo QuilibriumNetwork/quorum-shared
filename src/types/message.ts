@@ -377,6 +377,38 @@ export type Message = {
     modifiedDate: number;
     lastModifiedHash: string;
   }>;
+  /**
+   * The sender the CRYPTO LAYER authenticated for the frame this row came from.
+   * PERSISTED, and NEVER TRANSMITTED — note that this is the opposite posture to
+   * `sendStatus` below, which is neither.
+   *
+   * ⚠️ WHY THIS EXISTS. `content.senderId` is plaintext the SENDING client
+   * writes. The Double Ratchet proves which session a frame arrived on; it
+   * proves nothing about the JSON inside it, and the receive path stores that
+   * JSON verbatim. So any peer can put a row in your database that claims you
+   * wrote it. This field is the trustworthy answer to "who actually sent this",
+   * and it is the only one a security decision may read.
+   *
+   * ⚠️ HOW IT MUST BE WRITTEN, or it is worth nothing:
+   *
+   *   1. Assigned ONLY at the moment of persistence, from the value the crypto
+   *      layer authenticated (desktop: the init-envelope session's user address,
+   *      captured BEFORE the self-echo reassignment overwrites it; mobile: the
+   *      authenticated DM sender). On the send path, assign our own address.
+   *   2. Assigned AFTER the spread of the wire message, always:
+   *          { ...decryptedMessage, authenticatedSenderId: <authenticated> }
+   *      Written before the spread, a forged value in the payload overwrites it
+   *      and the field becomes an attacker-controlled string wearing a
+   *      trustworthy name — strictly worse than not having it.
+   *   3. Never copied from an inbound payload, and never sent on the wire. A
+   *      transmitted marker is a marker the sender chooses.
+   *
+   * ⚠️ ABSENT MEANS UNKNOWN, NOT SAFE. Rows written before this field existed
+   * carry nothing, so every reader must fail CLOSED on `undefined` rather than
+   * treat it as a match. In practice that means a pre-existing conversation
+   * cannot prove authorship until its next locally-originated message.
+   */
+  authenticatedSenderId?: string;
   /** Client-side ephemeral - NEVER persist or transmit */
   sendStatus?: MessageSendStatus;
   /** Client-side ephemeral - sanitized error message for display */
