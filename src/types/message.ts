@@ -48,12 +48,49 @@ export type UpdateProfileMessage = {
 // (never renders as a chat post) and upserts the DM conversation row.
 // Empty/absent fields mean "no change"; explicit empty-string bio clears,
 // matching space update-profile semantics.
+//
+// ⚠️ TWO ENVELOPE DIALECTS ARE LIVE ON THE NETWORK, and this type describes
+// only the FIELDS — it says nothing about how they travel. That silence is
+// precisely how two clients shipped opposite answers without either being
+// wrong:
+//
+//   FLAT     { type: 'dm-update-profile', senderId, displayName, … }
+//            — desktop, same family as its flat receipt acks.
+//   WRAPPED  { messageId: 'dm-profile-…', content: { type, senderId, … } }
+//            — mobile, a full Message envelope.
+//
+// A receiver that matched only one dialect did not merely miss the update: on
+// desktop the unmatched frame fell through to `saveMessage` and was PERSISTED
+// as a ghost message in the conversation.
+//
+// RECEIVERS MUST ACCEPT BOTH, and must prefer the `content` payload when both
+// shapes are somehow present (the authored payload beats envelope plumbing).
+// Which dialect is canonical for SENDERS is an open wire decision, not settled
+// here; this note records the fact that both exist, which is true either way.
+// Reference parsers: quorum-desktop/src/utils/dmProfileWire.ts and
+// quorum-mobile/services/dm/dmProfileWire.ts.
 export type DMUpdateProfileMessage = {
   senderId: string;
   type: 'dm-update-profile';
   displayName?: string;
   userIcon?: string;
   bio?: string;
+  /**
+   * The QNS username the sender has elected as primary (e.g. "alice" for
+   * @alice). Mobile has been sending this since before the field was typed,
+   * through an `as DMUpdateProfileMessage` cast; naming it here is what lets
+   * desktop see it at all.
+   *
+   * ⚠️ A CLAIM, NOT A FACT. Nothing in this frame proves the sender owns the
+   * name. Receivers must store it under a claimed-only key (mobile:
+   * `claimed_primary_username`, desktop: `Conversation.claimed_primary_username`)
+   * and must never place it in a verified slot or render it as a `.q` name
+   * without going through their own verification path.
+   *
+   * Presence-exact: '' is a deliberate un-election and must survive parsing,
+   * so read it by type rather than by truthiness.
+   */
+  primaryUsername?: string;
 };
 
 export type RemoveMessage = {
@@ -340,6 +377,38 @@ export type Message = {
     modifiedDate: number;
     lastModifiedHash: string;
   }>;
+  /**
+   * The sender the CRYPTO LAYER authenticated for the frame this row came from.
+   * PERSISTED, and NEVER TRANSMITTED — note that this is the opposite posture to
+   * `sendStatus` below, which is neither.
+   *
+   * ⚠️ WHY THIS EXISTS. `content.senderId` is plaintext the SENDING client
+   * writes. The Double Ratchet proves which session a frame arrived on; it
+   * proves nothing about the JSON inside it, and the receive path stores that
+   * JSON verbatim. So any peer can put a row in your database that claims you
+   * wrote it. This field is the trustworthy answer to "who actually sent this",
+   * and it is the only one a security decision may read.
+   *
+   * ⚠️ HOW IT MUST BE WRITTEN, or it is worth nothing:
+   *
+   *   1. Assigned ONLY at the moment of persistence, from the value the crypto
+   *      layer authenticated (desktop: the init-envelope session's user address,
+   *      captured BEFORE the self-echo reassignment overwrites it; mobile: the
+   *      authenticated DM sender). On the send path, assign our own address.
+   *   2. Assigned AFTER the spread of the wire message, always:
+   *          { ...decryptedMessage, authenticatedSenderId: <authenticated> }
+   *      Written before the spread, a forged value in the payload overwrites it
+   *      and the field becomes an attacker-controlled string wearing a
+   *      trustworthy name — strictly worse than not having it.
+   *   3. Never copied from an inbound payload, and never sent on the wire. A
+   *      transmitted marker is a marker the sender chooses.
+   *
+   * ⚠️ ABSENT MEANS UNKNOWN, NOT SAFE. Rows written before this field existed
+   * carry nothing, so every reader must fail CLOSED on `undefined` rather than
+   * treat it as a match. In practice that means a pre-existing conversation
+   * cannot prove authorship until its next locally-originated message.
+   */
+  authenticatedSenderId?: string;
   /** Client-side ephemeral - NEVER persist or transmit */
   sendStatus?: MessageSendStatus;
   /** Client-side ephemeral - sanitized error message for display */
