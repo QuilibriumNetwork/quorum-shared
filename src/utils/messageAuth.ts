@@ -2,7 +2,8 @@ import { sha256 } from '@noble/hashes/sha2';
 import { base58btc } from 'multiformats/bases/base58';
 import { canonicalize } from './canonicalize';
 import { createChannelPermissionChecker } from './channelPermissions';
-import { bytesToHex, hexToBytes } from './encoding';
+import { bytesToBase64, bytesToHex, hexToBytes } from './encoding';
+import type { SigningProvider } from '../signing';
 import type {
   Channel,
   EditMessage,
@@ -149,6 +150,124 @@ export function resolveVerifiedSender(
   }
 
   return null;
+}
+
+/**
+ * Outcome of verifying a message's signature AND resolving who signed it.
+ *
+ * The two fields answer different questions and must not be conflated:
+ *  - `signatureValid` — did the ed448 check pass? A `false` here means the
+ *    message proves nothing about its author.
+ *  - `sender` — WHO the verified key belongs to. Null is legitimate even when
+ *    `signatureValid` is true: the key may belong to a member whose join
+ *    broadcast never reached us, which some handlers accept as a bootstrap.
+ *
+ * The invariant this type exists to carry: `sender` is non-null ONLY when
+ * `signatureValid` is true. Callers that need proof of authorship must test
+ * `signatureValid`, never `sender !== null` alone.
+ */
+export type VerifiedSenderResult =
+  | {
+      signatureValid: false;
+      reason: 'no-signature' | 'messageid-mismatch' | 'bad-signature';
+      /** Structurally absent: nothing was proven, so there is nobody to name. */
+      sender?: undefined;
+    }
+  | {
+      signatureValid: true;
+      reason: 'ok';
+      sender: VerifiedSender | null;
+    };
+
+/** The fields of a space message that authorship depends on. */
+export type VerifiableSpaceMessage = Pick<
+  Message,
+  'nonce' | 'messageId' | 'content' | 'publicKey' | 'signature'
+>;
+
+/**
+ * Verify a space message's ed448 signature and, only if it holds, resolve the
+ * member who signed it. THE ONLY SAFE WAY TO OBTAIN A `VerifiedSender`.
+ *
+ * WHY THIS EXISTS. `resolveVerifiedSender` runs no cryptography — it is a
+ * reverse lookup that assumes its caller already verified. When those two steps
+ * live in different places, joined only by a comment, any handler that reaches
+ * the lookup without satisfying the distant verify gate receives an identity
+ * that looks proven and is not. A signing key is PUBLIC (it rides on every
+ * signed message), so pasting a victim's key next to garbage signature bytes is
+ * free; only checking the signature costs an attacker anything. Fusing the two
+ * makes the unverified path unrepresentable rather than merely discouraged.
+ *
+ * Ed448 stays platform-side (WASM on desktop, native on mobile) and arrives via
+ * `provider`, the same injection `verifyDeviceKeyStatement` already uses.
+ *
+ * SCOPE BINDING: `scopeSpaceId`/`scopeChannelId` should be the scope the action
+ * will actually APPLY in, not the scope the wire claims, so a signature can
+ * never attest one place while taking effect in another. For non-control types
+ * these are absent from the fingerprint and the choice is inert.
+ */
+export async function verifyAndResolveSender(params: {
+  message: VerifiableSpaceMessage;
+  scopeSpaceId: string;
+  scopeChannelId: string;
+  members: SpaceMember[];
+  deviceKeys?: SpaceMemberDevice[];
+  provider: Pick<SigningProvider, 'verifyEd448'>;
+}): Promise<VerifiedSenderResult> {
+  const {
+    message,
+    scopeSpaceId,
+    scopeChannelId,
+    members,
+    deviceKeys,
+    provider,
+  } = params;
+
+  const fail = (
+    reason: Extract<VerifiedSenderResult, { signatureValid: false }>['reason']
+  ): VerifiedSenderResult => ({ signatureValid: false, reason });
+
+  if (!message.publicKey || !message.signature) return fail('no-signature');
+
+  // Raw digest bytes, not the hex string: the ed448 signature is over these.
+  // Both apps sign the same bytes, so any change here breaks verification
+  // silently and cross-platform.
+  const digest = sha256(
+    new TextEncoder().encode(
+      buildMessageFingerprint({
+        nonce: message.nonce,
+        // `canonicalize` enumerates a narrower union than `MessageContent`
+        // (it predates types like EventMessage), but it only walks the object
+        // generically. Every desktop call site casts here for the same reason;
+        // widening canonicalize's signature is a separate cleanup.
+        content: message.content as Parameters<
+          typeof buildMessageFingerprint
+        >[0]['content'],
+        senderId: message.content.senderId,
+        spaceId: scopeSpaceId,
+        channelId: scopeChannelId,
+      })
+    )
+  );
+
+  // The wire messageId must be the fingerprint's own hash, so a signature
+  // cannot be lifted onto different content.
+  if (message.messageId !== bytesToHex(digest)) {
+    return fail('messageid-mismatch');
+  }
+
+  const valid = await provider.verifyEd448(
+    bytesToBase64(hexToBytes(message.publicKey)),
+    bytesToBase64(digest),
+    bytesToBase64(hexToBytes(message.signature))
+  );
+  if (!valid) return fail('bad-signature');
+
+  return {
+    signatureValid: true,
+    reason: 'ok',
+    sender: resolveVerifiedSender(message.publicKey, members, deviceKeys),
+  };
 }
 
 export interface ControlMessageVerdict {
