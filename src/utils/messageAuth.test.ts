@@ -3,10 +3,12 @@ import { sha256 as mfSha256 } from 'multiformats/hashes/sha2';
 import { base58btc } from 'multiformats/bases/base58';
 import {
   authorizeControlMessage,
+  authorizeThreadAction,
   buildMessageFingerprint,
   computeMessageIdHex,
   deriveInboxAddress,
   isControlMessageType,
+  requiresVerifiedSignature,
   resolveVerifiedSender,
   shouldSignEdit,
   verifyAndResolveSender,
@@ -630,5 +632,165 @@ describe('verifyAndResolveSender', () => {
     const result = await run(signedForOtherSpace, provider);
     expect(result.reason).toBe('messageid-mismatch');
     expect(result.sender).toBeUndefined();
+  });
+});
+
+describe('the verification list and the fingerprint list are separate', () => {
+  it("requires a signature for 'thread'", () => {
+    expect(requiresVerifiedSignature('thread')).toBe(true);
+  });
+
+  it("still requires one for all four original control types", () => {
+    for (const type of ['remove-message', 'edit-message', 'pin', 'mute']) {
+      expect(requiresVerifiedSignature(type)).toBe(true);
+    }
+  });
+
+  it('leaves ordinary posts alone — deniability is a feature, not a gap', () => {
+    expect(requiresVerifiedSignature('post')).toBe(false);
+  });
+
+  /**
+   * THE WIRE GUARD. `buildMessageFingerprint` keys off `isControlMessageType`,
+   * so if 'thread' ever joins THAT list every thread messageId changes and old
+   * clients reject frames from new ones. Hardening must stay on the other list.
+   */
+  it("does NOT put 'thread' on the fingerprint-scope list", () => {
+    expect(isControlMessageType('thread')).toBe(false);
+  });
+
+  it('leaves a thread frame\'s messageId byte-identical across scopes', () => {
+    const content = {
+      type: 'thread' as const,
+      senderId: ALICE,
+      targetMessageId: 'msg-1',
+      action: 'remove' as const,
+      threadMeta: { threadId: 't1', createdBy: ALICE },
+    };
+    const base = { nonce: 'n1', content: content as never, senderId: ALICE };
+
+    // A scope-bound type hashes differently per channel; 'thread' must not,
+    // because that difference IS the compatibility break.
+    const inCh1 = buildMessageFingerprint({
+      ...base,
+      spaceId: SPACE_ID,
+      channelId: 'ch1',
+    });
+    const inCh2 = buildMessageFingerprint({
+      ...base,
+      spaceId: 'other-space',
+      channelId: 'ch2',
+    });
+    expect(computeMessageIdHex(inCh1)).toBe(computeMessageIdHex(inCh2));
+  });
+});
+
+describe('authorizeThreadAction', () => {
+  const ACTIONS = [
+    'create',
+    'updateTitle',
+    'close',
+    'reopen',
+    'updateSettings',
+    'remove',
+  ] as const;
+
+  const spaceWithDeleteRole = (holder: string): Space =>
+    ({ roles: [role([holder], ['message:delete'])] }) as unknown as Space;
+
+  const verdict = (over: Partial<Parameters<typeof authorizeThreadAction>[0]>) =>
+    authorizeThreadAction({
+      action: 'remove',
+      verifiedSender: ALICE as VerifiedSender,
+      threadCreatedBy: ALICE,
+      space: undefined,
+      channel: undefined,
+      ...over,
+    });
+
+  it.each(ACTIONS)('denies %s outright when nobody was verified', (action) => {
+    const result = verdict({ action, verifiedSender: null });
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toBe('unsigned-thread-rejected');
+  });
+
+  it.each(ACTIONS)('allows %s for the thread creator', (action) => {
+    expect(verdict({ action }).allowed).toBe(true);
+  });
+
+  it.each(['close', 'reopen', 'updateSettings', 'remove'] as const)(
+    'allows %s for a holder of message:delete who is not the creator',
+    (action) => {
+      const result = verdict({
+        action,
+        verifiedSender: MALLORY as VerifiedSender,
+        threadCreatedBy: ALICE,
+        space: spaceWithDeleteRole(MALLORY),
+      });
+      expect(result.allowed).toBe(true);
+      expect(result.reason).toBe('ok-permission');
+    }
+  );
+
+  it('lets no one but the creator rename a thread, moderator included', () => {
+    const result = verdict({
+      action: 'updateTitle',
+      verifiedSender: MALLORY as VerifiedSender,
+      threadCreatedBy: ALICE,
+      space: spaceWithDeleteRole(MALLORY),
+    });
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toBe('not-thread-creator');
+  });
+
+  it.each(['close', 'reopen', 'updateSettings', 'remove'] as const)(
+    'denies %s to a member with no role and no ownership',
+    (action) => {
+      const result = verdict({
+        action,
+        verifiedSender: MALLORY as VerifiedSender,
+        threadCreatedBy: ALICE,
+        space: spaceWithDeleteRole(BOB),
+      });
+      expect(result.allowed).toBe(false);
+      expect(result.reason).toBe('no-permission');
+    }
+  );
+
+  it('does not treat an unknown creator as matching an unknown sender', () => {
+    const result = verdict({
+      action: 'remove',
+      verifiedSender: MALLORY as VerifiedSender,
+      threadCreatedBy: undefined,
+    });
+    expect(result.allowed).toBe(false);
+  });
+
+  it('lets anyone verified open a thread — creation is not privileged', () => {
+    const result = verdict({
+      action: 'create',
+      verifiedSender: MALLORY as VerifiedSender,
+      threadCreatedBy: undefined,
+    });
+    expect(result.allowed).toBe(true);
+    expect(result.reason).toBe('ok-new-thread');
+  });
+
+  it('isolates read-only channels to their managers', () => {
+    // NB: the `role()` helper hardcodes roleId 'r1', so the manager role must
+    // be a different id or the subject qualifies as a manager by accident.
+    const readOnly = {
+      isReadOnly: true,
+      managerRoleIds: ['manager-role'],
+    } as never;
+    // Holds message:delete via a normal role, but is not a manager here.
+    const result = verdict({
+      action: 'remove',
+      verifiedSender: MALLORY as VerifiedSender,
+      threadCreatedBy: ALICE,
+      space: { roles: [role([MALLORY], ['message:delete'])] } as unknown as Space,
+      channel: readOnly,
+    });
+    expect(result.allowed).toBe(false);
   });
 });

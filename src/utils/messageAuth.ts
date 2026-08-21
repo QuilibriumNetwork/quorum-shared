@@ -14,6 +14,7 @@ import type {
   Space,
   SpaceMember,
   SpaceMemberDevice,
+  ThreadMessage,
 } from '../types';
 
 /**
@@ -34,7 +35,20 @@ import type {
  * checked out against the fingerprint.
  */
 
-/** Control types require a verified signature regardless of space repudiability. */
+/**
+ * The four types whose verdict `authorizeControlMessage` returns, and whose
+ * signed fingerprint binds spaceId/channelId.
+ *
+ * ⚠️ FROZEN — this list is WIRE FORMAT. `buildMessageFingerprint` consults it to
+ * decide whether to mix the scope into the string that gets hashed into the
+ * messageId, so adding a type here changes that type's messageId and old clients
+ * stop agreeing with new ones about the identity of the same frame. That is a
+ * coordinated cross-client migration, never a receive-side hardening.
+ *
+ * To make a type require a verified signature, add it to
+ * {@link SIGNATURE_REQUIRED_MESSAGE_TYPES} instead — that list is pure local
+ * policy and has no wire effect.
+ */
 export const CONTROL_MESSAGE_TYPES = [
   'remove-message',
   'edit-message',
@@ -43,6 +57,39 @@ export const CONTROL_MESSAGE_TYPES = [
 ] as const;
 
 export type ControlMessageType = (typeof CONTROL_MESSAGE_TYPES)[number];
+
+/**
+ * Types a receiver must not act on without a valid ed448 signature, whatever the
+ * space's repudiability setting.
+ *
+ * EXTENSIBLE, and the counterpart to the frozen list above. Adding a type here
+ * only ever makes a receiver *stricter*: it changes nothing a sender puts on the
+ * wire and nothing about any messageId, so old and new clients keep interpreting
+ * frames identically.
+ *
+ * Two jobs used to hang off `CONTROL_MESSAGE_TYPES` alone — scope-binding the
+ * fingerprint, and forcing verification — which meant hardening a new type could
+ * only be bought by breaking its wire format. `'thread'` is the type that
+ * exposed it: it destroys other users' content and was on neither list.
+ */
+export const SIGNATURE_REQUIRED_MESSAGE_TYPES = [
+  ...CONTROL_MESSAGE_TYPES,
+  'thread',
+] as const;
+
+export type SignatureRequiredMessageType =
+  (typeof SIGNATURE_REQUIRED_MESSAGE_TYPES)[number];
+
+/**
+ * Whether a receiver must have verified this message's signature before acting
+ * on it. Use this for receive-side gates; use `isControlMessageType` only where
+ * the four-type verdict function or the fingerprint format is what's meant.
+ */
+export function requiresVerifiedSignature(
+  type: string
+): type is SignatureRequiredMessageType {
+  return (SIGNATURE_REQUIRED_MESSAGE_TYPES as readonly string[]).includes(type);
+}
 
 export type ControlMessageContent =
   | RemoveMessage
@@ -373,6 +420,96 @@ export function authorizeControlMessage(params: {
 
     default:
       return deny('unknown-control-type');
+  }
+}
+
+export interface ThreadActionVerdict {
+  allowed: boolean;
+  reason:
+    | 'ok-creator'
+    | 'ok-permission'
+    | 'ok-new-thread'
+    | 'unsigned-thread-rejected'
+    | 'not-thread-creator'
+    | 'no-permission';
+}
+
+/**
+ * The receive-side verdict for a `thread` control frame.
+ *
+ * Threads carry a second, parallel deletion primitive: `action: 'remove'` hard-
+ * deletes the root message and every reply. That made every field feeding this
+ * decision security-relevant, while none of them was verified — the rule ran on
+ * `threadMsg.senderId`, which the sending client writes freely.
+ *
+ * So `verifiedSender` is the ONLY identity this function will consider, and null
+ * denies everything. There is no unsigned escape hatch of the kind
+ * `authorizeControlMessage` grants edits: that one exists because unsigned
+ * content never had authenticated authorship to begin with, whereas a thread
+ * action reaches across to content that DID.
+ *
+ * `threadCreatedBy` must come from stored state (the root's `threadMeta` or the
+ * channel_threads registry), never from the incoming frame — and the value there
+ * is only trustworthy because `create` pins it to the verified creator. Both
+ * halves are required: re-anchoring this check while still letting a frame name
+ * its own creator just moves the forgery one step earlier.
+ *
+ * The rule itself is UNCHANGED from the pre-fix code (thread creator, or holder
+ * of `message:delete`); only its inputs became trustworthy. Whether creating a
+ * thread on someone else's message should confer permanent authority over it is
+ * a separate defect in the authorization MODEL, tracked apart from this.
+ */
+export function authorizeThreadAction(params: {
+  action: ThreadMessage['action'];
+  verifiedSender: VerifiedSender | null;
+  threadCreatedBy: string | undefined;
+  space: Space | undefined;
+  channel: Channel | undefined;
+}): ThreadActionVerdict {
+  const { action, verifiedSender, threadCreatedBy, space, channel } = params;
+
+  if (!verifiedSender) {
+    return { allowed: false, reason: 'unsigned-thread-rejected' };
+  }
+
+  const isCreator =
+    !!threadCreatedBy && threadCreatedBy === (verifiedSender as string);
+
+  switch (action) {
+    // Opening a thread is not privileged; the caller pins `createdBy` to this
+    // verified sender, so the act names its own author rather than claiming one.
+    case 'create':
+      return { allowed: true, reason: 'ok-new-thread' };
+
+    // Renaming is the creator's alone — moderators get no say, as before.
+    case 'updateTitle':
+      return isCreator
+        ? { allowed: true, reason: 'ok-creator' }
+        : { allowed: false, reason: 'not-thread-creator' };
+
+    case 'close':
+    case 'reopen':
+    case 'updateSettings':
+    case 'remove': {
+      if (isCreator) return { allowed: true, reason: 'ok-creator' };
+      const checker = createChannelPermissionChecker({
+        userAddress: verifiedSender,
+        isSpaceOwner: false, // ownership is receiver-unverifiable by design
+        space,
+        channel,
+      });
+      return checker.hasChannelPermission('message:delete')
+        ? { allowed: true, reason: 'ok-permission' }
+        : { allowed: false, reason: 'no-permission' };
+    }
+
+    default: {
+      // Exhaustive: a new ThreadMessage['action'] fails to compile here rather
+      // than silently falling through to an allow.
+      const unreachable: never = action;
+      void unreachable;
+      return { allowed: false, reason: 'no-permission' };
+    }
   }
 }
 
