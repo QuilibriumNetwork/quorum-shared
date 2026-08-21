@@ -36,6 +36,16 @@ export interface ChannelPermissionChecker {
   canPostMessage: () => boolean;
   canKickUser: () => boolean;
   canMuteUser: () => boolean;
+  /**
+   * Does this user hold `permission` here, by role — with read-only channels
+   * isolated to their managers, as everywhere else in this file.
+   *
+   * Deliberately has NO own-message shortcut, which is what separates it from
+   * `canDeleteMessage`. Callers authorizing an action on someone ELSE's content
+   * (thread moderation) must not inherit "you may always act on your own
+   * message", or the answer widens beyond the permission being asked about.
+   */
+  hasChannelPermission: (permission: Permission) => boolean;
 }
 
 /**
@@ -139,6 +149,20 @@ export class UnifiedPermissionSystem {
   }
 
   /**
+   * Role-granted permission for actions that have no per-message shortcut.
+   * Same read-only isolation as every other check here.
+   */
+  hasChannelPermission(permission: Permission): boolean {
+    const { channel } = this.context;
+
+    if (channel?.isReadOnly) {
+      return this.isReadOnlyChannelManager();
+    }
+
+    return this.hasTraditionalRolePermission(permission);
+  }
+
+  /**
    * Check if user is a manager of the current read-only channel
    * This is the ONLY way to get permissions in read-only channels (except space owner)
    */
@@ -191,6 +215,8 @@ export function createChannelPermissionChecker(
     canPostMessage: () => permissionSystem.canPostMessage(),
     canKickUser: () => permissionSystem.canKickUser(),
     canMuteUser: () => permissionSystem.canMuteUser(),
+    hasChannelPermission: (permission: Permission) =>
+      permissionSystem.hasChannelPermission(permission),
   };
 }
 
