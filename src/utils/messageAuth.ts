@@ -514,6 +514,46 @@ export function authorizeThreadAction(params: {
 }
 
 /**
+ * Whether an outbound frame must be signed, given the space's deniability
+ * setting and the sender's per-message choice.
+ *
+ * WHY THIS IS SHARED AND NOT AN INLINE BOOLEAN. The condition
+ * `!isRepudiable || (isRepudiable && !skipSigning)` was written out separately
+ * at each send branch, and a later hardening of the RECEIVE side reached only
+ * some of them. The result is the worst failure this codebase can produce: the
+ * sender's own client applies the action, every other client refuses the frame
+ * for lack of a signature, and nothing reports a disagreement. Sender and
+ * receiver policy have to be derived from the same list or they drift apart in
+ * exactly this silent way.
+ *
+ * ⚠️ NOT for `'edit-message'`, even though it is on the list. Edits follow the
+ * inherit rule below instead: an edit is signed iff the message it edits was
+ * signed, so editing a deliberately-unsigned message never silently attaches a
+ * signature to it. Passing 'edit-message' here returns `true` and would break
+ * that. Use {@link shouldSignEdit}.
+ */
+export function shouldSignOutbound(params: {
+  contentType: string;
+  isRepudiable: boolean;
+  isReadOnlyChannel: boolean;
+  skipSigning: boolean;
+}): boolean {
+  const { contentType, isRepudiable, isReadOnlyChannel, skipSigning } = params;
+
+  // The space owner has not permitted deniability at all.
+  if (!isRepudiable) return true;
+  // Read-only channels drop unsigned posts, including a manager's own.
+  if (isReadOnlyChannel) return true;
+  // Moderating or destroying someone else's content: receivers refuse these
+  // unsigned, so an unsigned one is not a deniable action, it is a no-op
+  // everywhere but here.
+  if (requiresVerifiedSignature(contentType)) return true;
+  // An ordinary post in a deniable space — the user's call, and the whole
+  // point of the feature.
+  return !skipSigning;
+}
+
+/**
  * Edit inherit rule: an edit is signed iff the message it edits was signed, so
  * a deliberately-unsigned (deniable) message never silently gains a signature.
  * Callers: `skipSigning = !shouldSignEdit(original)`.

@@ -11,6 +11,7 @@ import {
   requiresVerifiedSignature,
   resolveVerifiedSender,
   shouldSignEdit,
+  shouldSignOutbound,
   verifyAndResolveSender,
   type VerifiableSpaceMessage,
   type VerifiedSender,
@@ -792,5 +793,48 @@ describe('authorizeThreadAction', () => {
       channel: readOnly,
     });
     expect(result.allowed).toBe(false);
+  });
+});
+
+describe('shouldSignOutbound', () => {
+  const base = {
+    contentType: 'post',
+    isRepudiable: true,
+    isReadOnlyChannel: false,
+    skipSigning: false,
+  };
+
+  it('signs everything when the space forbids deniability', () => {
+    expect(
+      shouldSignOutbound({ ...base, isRepudiable: false, skipSigning: true })
+    ).toBe(true);
+  });
+
+  // THE DENIABILITY GUARD. If this ever goes red, the feature is broken:
+  // a user who chose to send unsigned is being signed anyway.
+  it('honors the per-message choice for an ordinary post', () => {
+    expect(shouldSignOutbound({ ...base, skipSigning: true })).toBe(false);
+    expect(shouldSignOutbound({ ...base, skipSigning: false })).toBe(true);
+  });
+
+  it.each(['remove-message', 'pin', 'mute', 'thread'])(
+    'force-signs %s even when the sender asked not to',
+    (contentType) => {
+      expect(shouldSignOutbound({ ...base, contentType, skipSigning: true })).toBe(
+        true
+      );
+    }
+  );
+
+  it('force-signs posts in a read-only channel', () => {
+    expect(
+      shouldSignOutbound({ ...base, isReadOnlyChannel: true, skipSigning: true })
+    ).toBe(true);
+  });
+
+  it('leaves unknown//future non-privileged types deniable', () => {
+    expect(
+      shouldSignOutbound({ ...base, contentType: 'sticker', skipSigning: true })
+    ).toBe(false);
   });
 });
