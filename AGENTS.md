@@ -49,6 +49,11 @@ This repo delegates to the same orchestrator: `yarn verify` here runs
 if that checkout is present as a sibling, and falls back to this repo's own
 fast tier (with a `PASS (PARTIAL)`) if it is not.
 
+That default delegation path (a real sibling `quorum-desktop` checkout) has
+not itself been exercised end to end yet, only via the `VERIFY_ORCHESTRATOR`
+override: the main desktop checkout stays on `main`, which will not carry the
+orchestrator until this PR merges there, and this gap closes once it does.
+
 ---
 
 _Last updated: 2026-08-23_
