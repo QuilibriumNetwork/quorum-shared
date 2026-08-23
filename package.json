@@ -32,7 +32,8 @@
     "lint": "eslint src --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "verify": "node scripts/verify.mjs"
   },
   "dependencies": {
     "@noble/hashes": "1.8.0",
