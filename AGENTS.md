@@ -46,32 +46,16 @@ behalf.
 
 This repo delegates to the same orchestrator: `yarn verify` here runs
 `scripts/verify.mjs`, which spawns `quorum-desktop`'s `scripts/verify/index.mjs`
-if that checkout is present as a sibling, and falls back to this repo's own
-fast tier (with a `PASS (PARTIAL)`) if it is not.
+if that checkout is present as a sibling.
 
-That default delegation path (a real sibling `quorum-desktop` checkout) has
-not itself been exercised end to end yet, only via the `VERIFY_ORCHESTRATOR`
-override: the main desktop checkout stays on `main`, which will not carry the
-orchestrator until this PR merges there, and this gap closes once it does.
+**Without one it falls back to this repo's own fast tier** — typecheck, unit,
+build — and reports `PASS (PARTIAL)`, naming the steps it ran. That is the
+fallback working, not a problem to fix: it proves less than a full run, and says
+so. The live tier and the cross-client arms need quorum-desktop.
 
-> ⚠️ **The single-repo fallback currently reports `FAIL`, on any change,
-> including a no-op.** MEASURED 2026-08-24:
-> `VERDICT FAIL — single-repo fast tier failed at 'typecheck' (exit 2)`.
->
-> The cause is one pre-existing type error in `src/primitives/Input/Input.native.tsx`
-> (TS2769, a falsy `0`/`''` leaking through a `||` chain into a React Native
-> style-array slot). The orchestrator knows about it — it is recorded as a
-> `KNOWN-RED` baseline of 1, so it does not fail a run there. The fallback has
-> no such notion, and it stops at the first failing step, so `unit` and `build`
-> never get to run.
->
-> Until it is fixed, a `FAIL` from the fallback naming `typecheck` says nothing
-> about your change. Check the error is that one and no other. With a sibling
-> `quorum-desktop` checkout on a branch carrying the orchestrator, this does not
-> arise at all.
->
-> Tracked in quorum-desktop:
-> `.agents/issues/.open/2026-08-24-shared-verify-fallback-always-fails-on-a-known-type-error.md`
+The fallback stops at the first failing step, and it has no `KNOWN-RED` notion,
+so a step the orchestrator would tolerate fails the whole run here. Keep this
+repo typechecking clean and that never arises.
 
 ---
 
