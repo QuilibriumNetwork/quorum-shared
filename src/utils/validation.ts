@@ -36,7 +36,10 @@ import type { Message, PostMessage } from '../types';
  * 3. React JSX auto-escapes all text content and attribute values
  * 4. SearchService.highlightSearchTerms properly escapes HTML before dangerouslySetInnerHTML
  */
-export const DANGEROUS_HTML_PATTERN = /<[a-zA-Z\/!?]/;
+// `[a-zA-Z/!?]`, not `[a-zA-Z\/!?]`: inside a character class a forward slash
+// carries no special meaning, so the backslash was a no-op. The matched set is
+// unchanged — `<`, then a letter, `/`, `!` or `?`.
+export const DANGEROUS_HTML_PATTERN = /<[a-zA-Z/!?]/;
 
 /**
  * Maximum length for user input names (display names, space names, group names, channel names)
@@ -149,7 +152,9 @@ export const getXSSValidationError = (fieldName: string = 'Name'): string => {
 export const sanitizeNameForXSS = (name: string): string => {
   // Remove < only when followed by characters that start HTML constructs
   // Uses global flag to remove all occurrences
-  return name.replace(/<([a-zA-Z\/!?])/g, '$1');
+  // Character set identical to DANGEROUS_HTML_PATTERN above; the `/` needs no
+  // escape inside a class.
+  return name.replace(/<([a-zA-Z/!?])/g, '$1');
 };
 
 // ============================================
@@ -551,6 +556,15 @@ export function validateMessage(message: Partial<Message>): ValidationResult {
  * Sanitize message content for display
  */
 export function sanitizeContent(content: string): string {
-  // Remove null bytes and control characters (except newlines/tabs)
+  // Remove null bytes and control characters (except newlines/tabs).
+  //
+  // Matching control characters IS the point here. `no-control-regex` exists to
+  // catch them appearing by ACCIDENT — a literal escape someone did not mean to
+  // write — and this is a deliberate sanitiser whose ranges are chosen to skip
+  // \x09 tab, \x0A newline and \x0D carriage return.
+  //
+  // The directive must be the line immediately above the code, so it sits below
+  // this explanation rather than inside it.
+  // eslint-disable-next-line no-control-regex
   return content.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
 }

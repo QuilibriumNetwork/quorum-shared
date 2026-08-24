@@ -68,7 +68,7 @@ export function stripMarkdown(text: string): string {
 
     // Remove unnecessary escapes added by remarkStringify
     // These escapes are added to prevent markdown interpretation but we want plain text
-    final = final.replace(/\\([:.#\-*_`~\[\](){}|>!])/g, '$1');
+    final = final.replace(/\\([:.#\-*_`~[\](){}|>!])/g, '$1');
 
     return final.trim();
   } catch (error) {
