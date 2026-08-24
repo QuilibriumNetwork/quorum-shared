@@ -41,7 +41,11 @@ export const FileUpload: React.FC<FileUploadWebProps> = ({
       const originalError = firstRejection.errors?.[0]?.message || '';
       const errorCode = firstRejection.errors?.[0]?.code || '';
 
-      let errorMessage = '';
+      // No initialiser: the if/else chain below ends in a plain `else`, so every
+      // path assigns and `''` was dead. Declaring it undefined means a future
+      // branch that forgets to assign fails the build, rather than surfacing an
+      // empty Error message to the user.
+      let errorMessage: string;
 
       // Translate common error messages using Lingui
       if (

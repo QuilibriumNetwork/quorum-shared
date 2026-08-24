@@ -26,11 +26,15 @@ export function generateMessagePreview(
 
   switch (message.content.type) {
     // Actual conversational content - show in preview
-    case 'post':
+    // Braced so `text` is scoped to this case. Without them the binding is
+    // hoisted into the whole switch, and a later case referencing it would hit
+    // a temporal-dead-zone error at runtime rather than a compile error.
+    case 'post': {
       const text = Array.isArray(message.content.text)
         ? message.content.text.join(' ')
         : message.content.text;
       return { text: truncateText(stripMarkdown(text), maxLength) };
+    }
 
     case 'embed':
       if (message.content.imageUrl) return { text: 'Photo', icon: 'image' };

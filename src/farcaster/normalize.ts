@@ -113,7 +113,7 @@ function classifyBareUrl(url: string): NormalizedEmbed {
  * the same quote twice.
  */
 function castHashFromFarcasterUrl(url: string): string | null {
-  const m = url.match(/farcaster\.xyz\/[^\/]+\/(0x[a-fA-F0-9]+)/);
+  const m = url.match(/farcaster\.xyz\/[^/]+\/(0x[a-fA-F0-9]+)/);
   return m ? m[1].toLowerCase() : null;
 }
 

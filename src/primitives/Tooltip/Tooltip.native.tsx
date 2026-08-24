@@ -78,8 +78,13 @@ export function Tooltip({
     // Compensate for systematic downward offset (status bar, headers, etc.)
     const verticalOffset = 40; // Adjust this value to compensate for the downward push
 
-    let top = 0;
-    let left = 0;
+    // Declared without a value on purpose. The switch below assigns both on
+    // every branch INCLUDING `default`, so `= 0` was dead — and worse than
+    // dead: it would silently place the tooltip at the origin if a future
+    // branch ever forgot to assign. Left undeclared, TypeScript's definite-
+    // assignment analysis fails the build instead.
+    let top: number;
+    let left: number;
 
     switch (place) {
       case 'top':

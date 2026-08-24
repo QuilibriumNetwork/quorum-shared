@@ -26,7 +26,7 @@ export function getValidMessageLinkPrefixes(): string[] {
  */
 export function parseMessageLink(url: string): MessageLinkInfo | null {
   // Match: [prefix]/spaces/{spaceId}/{channelId}#msg-{messageId}
-  const regex = /\/spaces\/([^\/]+)\/([^#]+)#msg-([a-zA-Z0-9_-]+)$/;
+  const regex = /\/spaces\/([^/]+)\/([^#]+)#msg-([a-zA-Z0-9_-]+)$/;
   const match = url.match(regex);
 
   if (!match) return null;

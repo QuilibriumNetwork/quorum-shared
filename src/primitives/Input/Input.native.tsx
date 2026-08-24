@@ -161,7 +161,20 @@ export const Input: React.FC<InputNativeProps> = ({
       {/* Input container for floating label */}
       <View
         style={[
-          (showFloatingLabel || leftIcon || rightIcon) && styles.floatingContainer,
+          // `!!` matches `inputWithLeftIcon`/`inputWithRightIcon` below, and is
+          // load-bearing rather than stylistic. `leftIcon`/`rightIcon` are
+          // `React.ReactNode`, so a falsy-but-not-`false` node — `0` or `''` —
+          // flows out of the `||` chain and lands in this slot, which React
+          // Native's style union does not accept (it takes `undefined | null |
+          // false`, not `0` or `''`). That was the repo's only type error.
+          //
+          // Runtime behaviour is unchanged. `flattenStyle`
+          // (node_modules/react-native/Libraries/StyleSheet/flattenStyle.js)
+          // returns `undefined` for any non-object entry and then skips it on
+          // `if (computedStyle)`, so `0`, `''` and `false` are all discarded
+          // identically. The style is applied in exactly the same cases as
+          // before: whenever the condition is truthy.
+          !!(showFloatingLabel || leftIcon || rightIcon) && styles.floatingContainer,
         ]}
       >
         {leftIcon && (

@@ -14,7 +14,7 @@ import { logger } from './logger';
  */
 export function stripMarkdown(text: string): string {
   try {
-    let processed = text
+    const processed = text
       // Remove YouTube embeds and invite cards
       .replace(/!\[youtube-embed\]\([^)]+\)/g, '')
       .replace(/!\[invite-card\]\([^)]+\)/g, '')
