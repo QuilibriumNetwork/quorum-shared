@@ -54,6 +54,25 @@ not itself been exercised end to end yet, only via the `VERIFY_ORCHESTRATOR`
 override: the main desktop checkout stays on `main`, which will not carry the
 orchestrator until this PR merges there, and this gap closes once it does.
 
+> ⚠️ **The single-repo fallback currently reports `FAIL`, on any change,
+> including a no-op.** MEASURED 2026-08-24:
+> `VERDICT FAIL — single-repo fast tier failed at 'typecheck' (exit 2)`.
+>
+> The cause is one pre-existing type error in `src/primitives/Input/Input.native.tsx`
+> (TS2769, a falsy `0`/`''` leaking through a `||` chain into a React Native
+> style-array slot). The orchestrator knows about it — it is recorded as a
+> `KNOWN-RED` baseline of 1, so it does not fail a run there. The fallback has
+> no such notion, and it stops at the first failing step, so `unit` and `build`
+> never get to run.
+>
+> Until it is fixed, a `FAIL` from the fallback naming `typecheck` says nothing
+> about your change. Check the error is that one and no other. With a sibling
+> `quorum-desktop` checkout on a branch carrying the orchestrator, this does not
+> arise at all.
+>
+> Tracked in quorum-desktop:
+> `.agents/issues/.open/2026-08-24-shared-verify-fallback-always-fails-on-a-known-type-error.md`
+
 ---
 
 _Last updated: 2026-08-23_
