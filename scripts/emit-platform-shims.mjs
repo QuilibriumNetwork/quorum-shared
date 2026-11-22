@@ -40,7 +40,7 @@ const DIST = 'dist';
  * that may be undefined, `string` passed where a union is required, native-only
  * props on web components) but they are a separate cleanup, tracked in
  * quorum-desktop's
- * `.agents/issues/2026-08-06-invalid-icon-names-render-nothing-and-no-type-error-catches-them.md`.
+ * `.agents/tickets/2026-08-06-invalid-icon-names-render-nothing-and-no-type-error-catches-them.md`.
  *
  * `Icon` is enabled because its `any` caused a shipped, user-visible bug:
  * twelve call sites passed names outside `IconName`, and `Icon` renders null for
