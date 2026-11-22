@@ -30,7 +30,7 @@ cost depends on what changed, not on asking:
   fast tier plus the live tier, about **6.5 minutes measured** (longer once
   the two cross-client arms are runnable; they are currently skipped from a
   linked worktree checkout, tracked in quorum-desktop's
-  `.agents/issues/.open/2026-08-23-cross-client-harness-scripts-resolve-mobile-wrong-from-worktree.md`).
+  `.agents/tickets/.open/2026-08-23-cross-client-harness-scripts-resolve-mobile-wrong-from-worktree.md`).
   Real bots send real messages over a real relay.
 - `yarn verify --fast` skips the live tier on request, for a quick check
   mid-work; it is not a substitute for the full run before reporting done.

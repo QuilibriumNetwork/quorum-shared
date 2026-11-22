@@ -18,7 +18,7 @@
  * blob or the local store, so an old client's fat payload can neither be
  * re-uploaded nor re-adopted.
  *
- * See `.agents/issues/2026-08-05-bookmarks-are-75-percent-of-the-config-blob.md`.
+ * See `.agents/tickets/2026-08-05-bookmarks-are-75-percent-of-the-config-blob.md`.
  */
 
 import type { Bookmark, LegacyBookmark } from '../types/bookmark';

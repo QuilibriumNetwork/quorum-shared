@@ -41,7 +41,7 @@ export type Bookmark = {
  * declared here only so `stripBookmarkSenderIcon` can READ it off blobs and
  * IndexedDB rows left by older clients.
  *
- * See `.agents/issues/2026-08-05-bookmarks-are-75-percent-of-the-config-blob.md`.
+ * See `.agents/tickets/2026-08-05-bookmarks-are-75-percent-of-the-config-blob.md`.
  */
 export type LegacyBookmarkPreview = BookmarkPreview & {
   senderIcon?: string;
